@@ -46,7 +46,9 @@ st.markdown("""
     div[class*="viewerBadge"],
     div[class*="stAppDeployButton"],
     button[title="View app in Streamlit Cloud"],
-    [data-testid="manage-app-button"] {
+    [data-testid="manage-app-button"],
+    a[href*="share.streamlit.io"],
+    a[href*="streamlit.io/cloud"] {
         display: none !important;
         visibility: hidden !important;
     }
@@ -322,13 +324,12 @@ if rag_chain is None:
     st.stop()
 
 
-
 # Chat interface
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # 1. Handle Chat Input
-if prompt := st.chat_input("何か質問はありますか？"):
+if prompt := st.chat_input("何か質問はありますか？ (v2)"):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
 # 2. Display History
