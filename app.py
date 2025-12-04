@@ -93,25 +93,29 @@ st.markdown("""
         color: #065f46 !important;
     }
     
-    /* 入力欄（チャット入力）のサイズ調整 - v8: 文字色とプレースホルダーを修正 */
+    /* 入力欄（チャット入力）のサイズ調整 - v10: 親要素ごと高さを強制拡張 */
     .stChatInput textarea {
         font-size: 18px !important;
         padding: 15px !important;
-        height: 100px !important;
-        min-height: 100px !important;
-        color: #333333 !important; /* 入力文字色 */
-        caret-color: #333333 !important; /* カーソル色 */
+        height: 150px !important; /* 高さを150pxにさらに拡大 */
+        min-height: 150px !important;
+        line-height: 1.5 !important;
+        color: #333333 !important;
+        caret-color: #333333 !important;
     }
     
-    /* プレースホルダー（薄い文字）の色を強制指定 */
-    .stChatInput textarea::placeholder {
-        color: #6b7280 !important; /* グレー */
-        opacity: 1 !important;
+    /* 入力欄の親要素（枠線）も一緒に広げる */
+    div[data-testid="stChatInput"] > div {
+        border: 2px solid #34d399 !important;
+        border-radius: 20px !important;
+        background-color: white !important;
+        min-height: 150px !important; /* 親要素も150px確保 */
+        height: auto !important;
     }
     
-    /* チャット入力欄のコンテナ - v7: 位置を少し下げる（余白を減らす） */
+    /* チャット入力欄のコンテナ - v10: 位置調整 */
     div[data-testid="stChatInput"] {
-        padding-bottom: 60px !important; /* 120px -> 60px に減らして下に近づける */
+        padding-bottom: 60px !important;
         background-color: transparent !important;
     }
     
@@ -376,7 +380,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # 1. Handle Chat Input
-if prompt := st.chat_input("何か質問はありますか？ (v8)"):
+if prompt := st.chat_input("何か質問はありますか？ (v10)"):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
 # 2. Display History
