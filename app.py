@@ -102,9 +102,10 @@ st.markdown("""
         border: 2px solid #34d399 !important; /* 枠線をくっきりさせる */
     }
     
-    /* チャット入力欄のコンテナ */
+    /* チャット入力欄のコンテナ - v5: 誤タップ防止のため位置を底上げ */
     div[data-testid="stChatInput"] {
-        padding-bottom: 30px !important;
+        padding-bottom: 120px !important; /* 下に大きな余白を作って入力欄を上に押し上げる */
+        background-color: transparent !important; /* 余白部分は背景色になじませる */
     }
     
     /* 送信ボタン */
@@ -330,12 +331,33 @@ if rag_chain is None:
     st.stop()
 
 
+# Disclaimer for mobile (fixed position at bottom)
+st.markdown("""
+    <style>
+    .mobile-disclaimer {
+        position: fixed;
+        bottom: 5px;
+        left: 10px;
+        font-size: 10px;
+        color: #9ca3af; /* Gray-400 */
+        z-index: 9999;
+        pointer-events: none;
+        background-color: rgba(255, 255, 255, 0.7);
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+    </style>
+    <div class="mobile-disclaimer">
+        ※ AIの回答は間違っている場合もあります
+    </div>
+    """, unsafe_allow_html=True)
+
 # Chat interface
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # 1. Handle Chat Input
-if prompt := st.chat_input("何か質問はありますか？ (v4)"):
+if prompt := st.chat_input("何か質問はありますか？ (v6)"):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
 # 2. Display History
