@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+
+# System files
+.DS_Store
+
+# Streamlit
+.streamlit/secrets.toml
+
+# We WANT to commit chroma_db for this specific use case to avoid re-ingestion
+# so we do NOT ignore it.
+# chroma_db/ 
+
+# Ignore raw data files (PDFs, etc) to save space. 
+# The knowledge is already in chroma_db.
+data/
+
+# Ignore raw data files (PDFs, etc) to save space. 
+# The knowledge is already in chroma_db.
+data/
