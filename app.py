@@ -93,19 +93,19 @@ st.markdown("""
         color: #065f46 !important;
     }
     
-    /* 入力欄（チャット入力）のサイズ調整 - v4強化版 */
+    /* 入力欄（チャット入力）のサイズ調整 - v7: 枠線を削除し、位置を下げる */
     .stChatInput textarea {
         font-size: 18px !important;
         padding: 15px !important;
-        height: 100px !important; /* 高さを強制的に100pxに */
+        height: 100px !important;
         min-height: 100px !important;
-        border: 2px solid #34d399 !important; /* 枠線をくっきりさせる */
+        /* border: none !important;  <-- 枠線を削除 */
     }
     
-    /* チャット入力欄のコンテナ - v5: 誤タップ防止のため位置を底上げ */
+    /* チャット入力欄のコンテナ - v7: 位置を少し下げる（余白を減らす） */
     div[data-testid="stChatInput"] {
-        padding-bottom: 120px !important; /* 下に大きな余白を作って入力欄を上に押し上げる */
-        background-color: transparent !important; /* 余白部分は背景色になじませる */
+        padding-bottom: 60px !important; /* 120px -> 60px に減らして下に近づける */
+        background-color: transparent !important;
     }
     
     /* 送信ボタン */
@@ -369,7 +369,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # 1. Handle Chat Input
-if prompt := st.chat_input("何か質問はありますか？ (v6)"):
+if prompt := st.chat_input("何か質問はありますか？ (v7)"):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
 # 2. Display History
