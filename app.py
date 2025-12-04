@@ -201,9 +201,21 @@ DB_DIR = "chroma_db"
 
 @st.cache_resource
 def get_rag_chain(model_name):
+    # If DB doesn't exist (fresh deploy on Cloud), rebuild it from data/
     if not os.path.exists(DB_DIR):
-        return None
-    
+        with st.spinner("初回起動準備中... 原稿データを学習しています（数分かかります）..."):
+            try:
+                # Capture stdout to show progress in logs if needed
+                old_stdout = sys.stdout
+                sys.stdout = mystdout = StringIO()
+                
+                ingest_data()
+                
+                sys.stdout = old_stdout
+            except Exception as e:
+                st.error(f"学習に失敗しました: {e}")
+                return None
+
     # Use the same local embedding model as ingestion, force CPU
     embeddings = HuggingFaceEmbeddings(
         model_name="intfloat/multilingual-e5-small",

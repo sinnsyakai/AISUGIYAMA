@@ -12,14 +12,11 @@ __pycache__/
 # Streamlit
 .streamlit/secrets.toml
 
-# We WANT to commit chroma_db for this specific use case to avoid re-ingestion
-# so we do NOT ignore it.
-# chroma_db/ 
+# Streamlit
+.streamlit/secrets.toml
 
-# Ignore raw data files (PDFs, etc) to save space. 
-# The knowledge is already in chroma_db.
-data/
+# Ignore local vector store (incompatible with Cloud Linux)
+chroma_db/
 
-# Ignore raw data files (PDFs, etc) to save space. 
-# The knowledge is already in chroma_db.
-data/
+# Allow raw data files to be uploaded so we can rebuild the DB on Cloud
+!data/
