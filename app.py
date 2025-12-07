@@ -1,5 +1,13 @@
 import streamlit as st
 import os
+
+# ChromaDB fix for Linux (Railway/Streamlit Cloud)
+try:
+    __import__('pysqlite3')
+    import sys
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    pass
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_huggingface import HuggingFaceEmbeddings

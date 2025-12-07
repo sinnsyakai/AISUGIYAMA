@@ -1,5 +1,12 @@
 import os
 import glob
+# ChromaDB fix for Linux (Railway/Streamlit Cloud)
+try:
+    __import__('pysqlite3')
+    import sys
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    pass
 import time
 from typing import List
 from dotenv import load_dotenv
