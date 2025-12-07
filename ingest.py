@@ -72,16 +72,13 @@ def ingest_data():
     print(f"Created {len(chunks)} chunks.")
 
     # Create Vector Store
-    print("Creating vector store with Local Embeddings (this may take a moment to download the model first)...")
+    print("Creating vector store with Google Embeddings...")
     
-    # Use a multilingual local model, force CPU to avoid MPS/Meta tensor errors
-    embeddings = HuggingFaceEmbeddings(
-        model_name="intfloat/multilingual-e5-small",
-        model_kwargs={'device': 'cpu'}
-    )
+    # Use Google's embedding model (Lightweight and Cloud-Native)
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
     
     # Initialize Chroma
-    # With local embeddings, we don't need to worry about rate limits, so we can process faster.
+    # With Google Embeddings, we don't need to worry about rate limits, so we can process faster.
     # However, passing all at once might spike memory, so we'll still batch but with larger size and no sleep.
     
     batch_size = 100
