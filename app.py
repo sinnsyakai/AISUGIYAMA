@@ -234,11 +234,8 @@ def get_rag_chain(model_name):
                 st.error(f"学習に失敗しました: {e}")
                 return None
 
-    # Use the same local embedding model as ingestion, force CPU
-    embeddings = HuggingFaceEmbeddings(
-        model_name="intfloat/multilingual-e5-small",
-        model_kwargs={'device': 'cpu'}
-    )
+    # Use Google's embedding model
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
     vector_store = Chroma(persist_directory=DB_DIR, embedding_function=embeddings)
     
     # Create retriever
