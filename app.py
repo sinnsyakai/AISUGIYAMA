@@ -120,9 +120,9 @@ st.markdown("""
         height: auto !important;
     }
     
-    /* チャット入力欄のコンテナ - Final: 位置を少し下げる */
+    /* チャット入力欄のコンテナ - Final: 位置を調整 */
     div[data-testid="stChatInput"] {
-        padding-bottom: 40px !important; /* 60px -> 40px に下げて自然な位置へ */
+        padding-bottom: 15px !important; /* 下の隙間を削減 */
         background-color: transparent !important;
     }
     
