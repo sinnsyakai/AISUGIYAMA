@@ -118,12 +118,24 @@ st.markdown("""
         background-color: white !important;
         min-height: 80px !important; /* 親要素も80px */
         height: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
     }
     
     /* チャット入力欄のコンテナ - Final: 位置を調整 */
     div[data-testid="stChatInput"] {
-        padding-bottom: 15px !important; /* 下の隙間を削減 */
+        padding-bottom: 0px !important; /* 下の隙間をゼロに */
         background-color: transparent !important;
+        
+        /* ストリームリットの標準パディングを無視して横幅いっぱいにする */
+        position: fixed !important;
+        bottom: 0px !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100vw !important;
+        padding-left: 20px !important; /* スマホでの端っこすぎを防ぐ */
+        padding-right: 20px !important;
+        z-index: 999 !important;
     }
     
     /* 送信ボタン */
@@ -432,7 +444,7 @@ if len(st.session_state.messages) == 0:
 # 4. Generate Response
 if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
     with st.chat_message("assistant", avatar="assets/new_icon.jpg"):
-        with st.spinner("考え中..."):
+        with st.spinner("ちょっと待ってね〜"):
             # Convert session state messages to LangChain format
             chat_history = []
             # Iterate through messages, forming pairs of HumanMessage and AIMessage
