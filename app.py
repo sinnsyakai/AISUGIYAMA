@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import glob
 
 # ChromaDB fix for Linux (Railway/Streamlit Cloud)
 try:
@@ -123,20 +124,33 @@ st.markdown("""
     }
     
     /* チャット入力欄のコンテナ - Final: 位置を調整 */
-    div[data-testid="stChatInput"] {
-        padding-bottom: 0px !important; /* 下の隙間をゼロに */
+    div[data-testid="stChatInput"],
+    section[data-testid="stBottom"] > div {
         background-color: transparent !important;
         
-        /* ストリームリットの標準パディングを無視して横幅いっぱいにする */
         position: fixed !important;
-        bottom: 0px !important;
-        left: 0 !important;
-        right: 0 !important;
-        width: 100vw !important;
-        padding-left: 20px !important; /* スマホでの端っこすぎを防ぐ */
-        padding-right: 20px !important;
-        z-index: 999 !important;
+        bottom: 120px !important; 
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 100% !important;
+        max-width: 670px !important;
+        z-index: 99999 !important; /* Force top layer */
+        pointer-events: auto !important;
     }
+
+    /* 入力欄の親要素（枠線）のスタイルを強化 */
+    div[data-testid="stChatInput"] > div {
+        border: 2px solid #34d399 !important;
+        border-radius: 20px !important;
+        background-color: white !important;
+        box-shadow: 0px 5px 15px rgba(0,0,0,0.1) !important;
+    }
+
+    /* 入力欄の背景にあるかもしれない灰色を消す */
+    section[data-testid="stBottom"] > div {
+        background-color: transparent !important;
+    }
+
     
     /* 送信ボタン */
     div[data-testid="stChatInput"] button {
@@ -164,47 +178,6 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 st.write("静岡の元教師すぎやまの動画・本など100万文字分のデータを学習したAIすぎやまです。勉強、進路、子育て、教育、SNS戦略、ビジネスのお悩みに答えます。質問内容はリアルすぎやまにも知られないし、公開されることもないので安心して相談してくださいね。")
 
-# Sidebar for configuration
-# with st.sidebar:
-#     st.header("設定")
-#     # API Key is managed via secrets/env for deployment
-#     try:
-#         if "GOOGLE_API_KEY" in st.secrets:
-#             os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
-#     except:
-#         # If secrets are not configured (local run without secrets.toml), ignore
-#         pass
-#     
-#     # Model selection (kept for flexibility)
-#     
-#     model_name = st.selectbox(
-#         "モデル選択",
-#         ["gemini-flash-latest", "gemini-pro-latest", "gemini-2.0-flash-exp"],
-#         index=0
-#     )
-#     
-#     st.divider()
-#     st.write("※ 原稿データは `data/` フォルダに配置してください。")
-#     
-#     if st.button("原稿データを読み込む (学習開始)"):
-#         with st.spinner("原稿データを読み込み中... (初回はモデルのダウンロードに時間がかかります)"):
-#             try:
-#                 # Capture stdout to show progress
-#                 old_stdout = sys.stdout
-#                 sys.stdout = mystdout = StringIO()
-#                 
-#                 ingest_data()
-#                 
-#                 sys.stdout = old_stdout
-#                 st.success("読み込み完了！")
-#                 st.expander("ログを表示").text(mystdout.getvalue())
-#                 
-#                 # Clear cache to reload retriever
-#                 st.cache_resource.clear()
-#                 
-#             except Exception as e:
-#                 st.error(f"エラーが発生しました: {e}")
-
 # Hardcode model for public deployment
 model_name = "gemini-flash-latest"
 
@@ -228,14 +201,23 @@ if not os.getenv("GOOGLE_API_KEY"):
 
 # Initialize RAG components
 DB_DIR = "chroma_db"
+DATA_DIR = "data"
 
+def get_available_sources():
+    files = glob.glob(os.path.join(DATA_DIR, "*"))
+    # Filter for supported extensions
+    supported_exts = ['.txt', '.pdf', '.docx', '.json', '.csv']
+    sources = [os.path.basename(f) for f in files if os.path.splitext(f)[1].lower() in supported_exts]
+    return sources
+
+# Initialize Vector Store (Cached)
 @st.cache_resource
-def get_rag_chain(model_name):
+def get_vector_store():
     # If DB doesn't exist (fresh deploy on Cloud), rebuild it from data/
     if not os.path.exists(DB_DIR):
         with st.spinner("初回起動準備中... 原稿データを学習しています（数分かかります）..."):
             try:
-                # Capture stdout to show progress in logs if needed
+                # Capture stdout
                 old_stdout = sys.stdout
                 sys.stdout = mystdout = StringIO()
                 
@@ -249,10 +231,62 @@ def get_rag_chain(model_name):
     # Use Google's embedding model
     embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
     vector_store = Chroma(persist_directory=DB_DIR, embedding_function=embeddings)
+    return vector_store
+
+# UI: Settings (Source Selection & Reset)
+with st.expander("設定 (検索対象・リセット)", expanded=False):
+    st.markdown("### 検索対象の選択")
+    available_sources = get_available_sources()
+    # Default to all selected
+    selected_sources = st.multiselect(
+        "検索する資料を選んでください:",
+        available_sources,
+        default=available_sources
+    )
     
-    # Create retriever
-    # Increase k to 10 to get more context (deep search)
-    retriever = vector_store.as_retriever(search_kwargs={"k": 10})
+    st.divider()
+    
+    st.markdown("### 会話のリセット")
+    if st.button("会話をリセットする"):
+        st.session_state.messages = []
+        st.rerun()
+
+# RAG Chain Creation (Uncached or separated from heavy loading)
+def create_rag_chain(vector_store, model_name, sources):
+    if not sources:
+        return None
+        
+    # Create retriever with source filter
+    # Chroma filter syntax: where={"source": {"$in": sources}} OR if simple list, just where={"source": "filename"} but for list we need $in operator usually or iterate?
+    # Wait, Chroma `where` filter usually takes a dictionary. 
+    # Standard LangChain `as_retriever` search_kwargs accepts `filter`.
+    # Let's check if the ingest process saves 'source' metadata as just basename or full path.
+    # Standard loaders usually save full path.
+    # In `ingest.py`: loader = TextLoader(file_path)...
+    # So metadata['source'] is likely "data/filename.txt".
+    # Therefore we need to prepend DATA_DIR to the selected filenames for filtering.
+    
+    full_path_sources = [os.path.join(DATA_DIR, s) for s in sources]
+    
+    # Construct filter
+    # If only 1 source, we can use simple dict. If multiple, we need "$or" or "$in" depending on backend.
+    # Chroma supports $in.
+    
+    if len(full_path_sources) == 1:
+        search_filter = {"source": full_path_sources[0]}
+    else:
+        search_filter = {"source": {"$in": full_path_sources}}
+        
+    # Note: If passing all sources, maybe we don't need a filter? 
+    # But it's safer to be explicit if user allows deselecting.
+    
+    # Increase k to 10
+    retriever = vector_store.as_retriever(
+        search_kwargs={
+            "k": 10,
+            "filter": search_filter
+        }
+    )
     
     llm = ChatGoogleGenerativeAI(model=model_name, temperature=0.7, streaming=True)
     
@@ -363,11 +397,20 @@ def get_rag_chain(model_name):
     
     return rag_chain
 
-rag_chain = get_rag_chain(model_name)
 
-if rag_chain is None:
+# Load Vector Store
+vector_store = get_vector_store()
+
+if vector_store is None:
     st.error("データベースが見つかりません。サイドバーのボタンから原稿データを読み込んでください。")
     st.stop()
+
+# Create Chain with selected sources
+if not selected_sources:
+    st.warning("検索対象が選択されていません。設定から1つ以上の資料を選択してください。")
+    rag_chain = None
+else:
+    rag_chain = create_rag_chain(vector_store, model_name, selected_sources)
 
 
 # Disclaimer for mobile (fixed position at bottom)
@@ -397,7 +440,10 @@ if "messages" not in st.session_state:
 
 # 1. Handle Chat Input
 if prompt := st.chat_input("何か質問はありますか？"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    if not rag_chain:
+         st.error("検索対象を選択してください。")
+    else:
+        st.session_state.messages.append({"role": "user", "content": prompt})
 
 # 2. Display History
 for message in st.session_state.messages:
@@ -443,33 +489,35 @@ if len(st.session_state.messages) == 0:
 
 # 4. Generate Response
 if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
-    with st.chat_message("assistant", avatar="assets/new_icon.jpg"):
-        with st.spinner("ちょっと待ってね〜"):
-            # Convert session state messages to LangChain format
-            chat_history = []
-            # Iterate through messages, forming pairs of HumanMessage and AIMessage
-            # The last message is the current user prompt, so we exclude it from chat_history
-            for i in range(0, len(st.session_state.messages) - 1):
-                msg = st.session_state.messages[i]
-                if msg["role"] == "user":
-                    chat_history.append(HumanMessage(content=msg["content"]))
-                elif msg["role"] == "assistant":
-                    chat_history.append(AIMessage(content=msg["content"]))
-            
-            prompt = st.session_state.messages[-1]["content"]
-            response_container = st.empty()
-            full_response = ""
-            
-            try:
-                # Use stream() instead of invoke()
-                for chunk in rag_chain.stream({"input": prompt, "chat_history": chat_history}):
-                    if "answer" in chunk:
-                        full_response += chunk["answer"]
-                        response_container.markdown(full_response)
+    if not rag_chain:
+        # Should already be handled by chat_input check, but double safety for button clicks
+        st.error("検索対象が選択されていません。")
+    else:
+        with st.chat_message("assistant", avatar="assets/new_icon.jpg"):
+            with st.spinner("ちょっと待ってね〜"):
+                # Convert session state messages to LangChain format
+                chat_history = []
+                for i in range(0, len(st.session_state.messages) - 1):
+                    msg = st.session_state.messages[i]
+                    if msg["role"] == "user":
+                        chat_history.append(HumanMessage(content=msg["content"]))
+                    elif msg["role"] == "assistant":
+                        chat_history.append(AIMessage(content=msg["content"]))
                 
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
+                prompt = st.session_state.messages[-1]["content"]
+                response_container = st.empty()
+                full_response = ""
                 
-            except Exception as e:
-                error_msg = f"エラーが発生しました: {e}"
-                st.error(error_msg)
-                st.session_state.messages.append({"role": "assistant", "content": "申し訳ありません。エラーが発生しました。"})
+                try:
+                    # Use stream() instead of invoke()
+                    for chunk in rag_chain.stream({"input": prompt, "chat_history": chat_history}):
+                        if "answer" in chunk:
+                            full_response += chunk["answer"]
+                            response_container.markdown(full_response)
+                    
+                    st.session_state.messages.append({"role": "assistant", "content": full_response})
+                    
+                except Exception as e:
+                    error_msg = f"エラーが発生しました: {e}"
+                    st.error(error_msg)
+                    st.session_state.messages.append({"role": "assistant", "content": "申し訳ありません。エラーが発生しました。"})
