@@ -171,12 +171,12 @@ st.markdown("""
             width: 95% !important;
             left: 50% !important;
             transform: translateX(-50%) !important;
-            bottom: 60px !important; /* 下の文字と被らないようにもっと上げる */
+            bottom: 25px !important; /* 指定の位置 (25px) */
         }
 
         /* メインコンテンツの開始位置を上に上げる（よくある質問が入力欄に被らないように） */
         div[data-testid="block-container"] {
-            padding-top: 10px !important; /* さらに上に (ほぼ0に) */
+            padding-top: 10px !important; 
             padding-bottom: 200px !important;
         }
     }
@@ -482,7 +482,10 @@ for message in st.session_state.messages:
 
 # 3. Example Questions (Only if history is empty)
 if len(st.session_state.messages) == 0:
-    st.markdown("### 💡 よくある質問")
+    # 隙間を詰めるために margin-top をマイナスに指定
+    st.markdown("""
+        <h3 style='margin-top: -30px; margin-bottom: 10px;'>💡 よくある質問</h3>
+        """, unsafe_allow_html=True)
     example_cols1 = st.columns(2)
     example_cols2 = st.columns(2)
     
