@@ -436,7 +436,7 @@ st.markdown("""
     }
     </style>
     <div class="mobile-disclaimer">
-        ※ AIの回答は間違っている場合もあります
+        ※ AIの回答は間違っている場合もあります (v1.1)
     </div>
     """, unsafe_allow_html=True)
 
