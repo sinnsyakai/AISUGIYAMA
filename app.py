@@ -171,12 +171,12 @@ st.markdown("""
             width: 95% !important;
             left: 50% !important;
             transform: translateX(-50%) !important;
-            bottom: 20px !important; /* 少し下に下げる (デフォルトが40pxなら20pxに) */
+            bottom: 60px !important; /* 下の文字と被らないようにもっと上げる */
         }
 
         /* メインコンテンツの開始位置を上に上げる（よくある質問が入力欄に被らないように） */
         div[data-testid="block-container"] {
-            padding-top: 1rem !important; /* さらに上に */
+            padding-top: 10px !important; /* さらに上に (ほぼ0に) */
             padding-bottom: 200px !important;
         }
     }
