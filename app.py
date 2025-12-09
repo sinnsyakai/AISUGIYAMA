@@ -110,7 +110,7 @@ st.markdown("""
         line-height: 1.5 !important;
         color: #333333 !important;
         caret-color: #333333 !important;
-        background-color: transparent !important;
+        background-color: #ffffff !important;
     }
     
     /* 入力欄の親要素（枠線） */
@@ -155,7 +155,7 @@ st.markdown("""
     
     /* メインコンテンツの最下部に余白を追加して、入力欄と被らないようにする */
     div[data-testid="block-container"] {
-        padding-bottom: 180px !important;
+        padding-bottom: 250px !important;
     }
 
     /* 送信ボタン */
@@ -439,7 +439,7 @@ st.markdown("""
     }
     </style>
     <div class="mobile-disclaimer">
-        ※ AIの回答は間違っている場合もあります (v1.2)
+        ※ AIの回答は間違っている場合もあります (v1.3)
     </div>
     """, unsafe_allow_html=True)
 
