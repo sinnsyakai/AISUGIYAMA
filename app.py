@@ -163,6 +163,22 @@ st.markdown("""
         width: 40px !important;
         height: 40px !important;
     }
+
+    /* ▼▼▼ スマホ向け調整 (max-width: 640px) ▼▼▼ */
+    @media (max-width: 640px) {
+        /* 入力欄の横幅を少し狭くして左右に余白を持たせる */
+        div[data-testid="stChatInput"] {
+            width: 95% !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+        }
+
+        /* メインコンテンツの開始位置を上に上げる（よくある質問が入力欄に被らないように） */
+        div[data-testid="block-container"] {
+            padding-top: 2rem !important; /* デフォルトより詰める */
+            padding-bottom: 200px !important; /* 下の余白は確保 */
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 # ▲▲▲ ここまで ▲▲▲
