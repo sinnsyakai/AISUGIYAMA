@@ -130,7 +130,7 @@ st.markdown("""
         background-color: transparent !important;
         
         position: fixed !important;
-        bottom: 100px !important; 
+        bottom: 40px !important; 
         left: 50% !important;
         transform: translateX(-50%) !important;
         width: 100% !important;
@@ -439,7 +439,7 @@ st.markdown("""
     }
     </style>
     <div class="mobile-disclaimer">
-        ※ AIの回答は間違っている場合もあります (v1.4)
+        ※ AIの回答は間違っている場合もあります (v1.5)
     </div>
     """, unsafe_allow_html=True)
 
