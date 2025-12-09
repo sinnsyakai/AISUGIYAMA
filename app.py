@@ -130,7 +130,7 @@ st.markdown("""
         background-color: transparent !important;
         
         position: fixed !important;
-        bottom: 120px !important; 
+        bottom: 100px !important; 
         left: 50% !important;
         transform: translateX(-50%) !important;
         width: 100% !important;
@@ -155,7 +155,7 @@ st.markdown("""
     
     /* メインコンテンツの最下部に余白を追加して、入力欄と被らないようにする */
     div[data-testid="block-container"] {
-        padding-bottom: 250px !important;
+        padding-bottom: 150px !important;
     }
 
     /* 送信ボタン */
@@ -439,7 +439,7 @@ st.markdown("""
     }
     </style>
     <div class="mobile-disclaimer">
-        ※ AIの回答は間違っている場合もあります (v1.3)
+        ※ AIの回答は間違っている場合もあります (v1.4)
     </div>
     """, unsafe_allow_html=True)
 
