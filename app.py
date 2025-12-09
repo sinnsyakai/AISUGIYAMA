@@ -110,6 +110,7 @@ st.markdown("""
         line-height: 1.5 !important;
         color: #333333 !important;
         caret-color: #333333 !important;
+        background-color: transparent !important;
     }
     
     /* 入力欄の親要素（枠線） */
@@ -152,6 +153,11 @@ st.markdown("""
     }
 
     
+    /* メインコンテンツの最下部に余白を追加して、入力欄と被らないようにする */
+    div[data-testid="block-container"] {
+        padding-bottom: 180px !important;
+    }
+
     /* 送信ボタン */
     div[data-testid="stChatInput"] button {
         width: 40px !important;
