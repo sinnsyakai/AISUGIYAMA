@@ -239,23 +239,26 @@ def get_vector_store():
     vector_store = Chroma(persist_directory=DB_DIR, embedding_function=embeddings)
     return vector_store
 
-# UI: Settings (Source Selection & Reset)
-with st.expander("設定 (検索対象・リセット)", expanded=False):
-    st.markdown("### 検索対象の選択")
-    available_sources = get_available_sources()
-    # Default to all selected
-    selected_sources = st.multiselect(
-        "検索する資料を選んでください:",
-        available_sources,
-        default=available_sources
-    )
-    
-    st.divider()
-    
-    st.markdown("### 会話のリセット")
-    if st.button("会話をリセットする"):
-        st.session_state.messages = []
-        st.rerun()
+# UI: Settings (Source Selection & Reset) - Hidden per user request
+# with st.expander("設定 (検索対象・リセット)", expanded=False):
+#     st.markdown("### 検索対象の選択")
+#     available_sources = get_available_sources()
+#     # Default to all selected
+#     selected_sources = st.multiselect(
+#         "検索する資料を選んでください:",
+#         available_sources,
+#         default=available_sources
+#     )
+#     
+#     st.divider()
+#     
+#     st.markdown("### 会話のリセット")
+#     if st.button("会話をリセットする"):
+#         st.session_state.messages = []
+#         st.rerun()
+
+# Default to all sources if settings are hidden
+selected_sources = get_available_sources()
 
 # RAG Chain Creation (Uncached or separated from heavy loading)
 def create_rag_chain(vector_store, model_name, sources):
@@ -436,7 +439,7 @@ st.markdown("""
     }
     </style>
     <div class="mobile-disclaimer">
-        ※ AIの回答は間違っている場合もあります (v1.1)
+        ※ AIの回答は間違っている場合もあります (v1.2)
     </div>
     """, unsafe_allow_html=True)
 
