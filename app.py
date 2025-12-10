@@ -535,6 +535,9 @@ if len(st.session_state.messages) == 0:
         if st.button(examples[3], use_container_width=True):
             st.session_state.messages.append({"role": "user", "content": examples[3]})
             st.rerun()
+            
+    # モバイルで最下部が隠れないようにするための余白
+    st.markdown('<div style="height: 300px;"></div>', unsafe_allow_html=True)
 
 # 4. Generate Response
 if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
