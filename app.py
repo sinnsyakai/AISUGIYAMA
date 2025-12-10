@@ -171,14 +171,34 @@ st.markdown("""
             width: 95% !important;
             left: 50% !important;
             transform: translateX(-50%) !important;
-            bottom: 25px !important; /* 指定の位置 (25px) */
+            bottom: 25px !important;
         }
 
-        /* メインコンテンツの開始位置を上に上げる（よくある質問が入力欄に被らないように） */
+        /* メインコンテンツの開始位置を上に上げる */
         div[data-testid="block-container"] {
             padding-top: 10px !important; 
             padding-bottom: 200px !important;
         }
+        
+        /* スマホでのボタン縦並び時の隙間を詰める */
+        .stButton, div.row-widget.stButton {
+             margin-bottom: -10px !important; /* 強制的に詰める */
+        }
+        
+        /* スマホでカラムが維持されている場合のgap調整 */
+        div[data-testid="stHorizontalBlock"] {
+            gap: 4px !important; /* さらに狭く */
+        }
+    }
+
+    /* 7. ボタン間の隙間調整 (PC/Tablet) */
+    div[data-testid="stHorizontalBlock"] {
+        gap: 8px !important; 
+    }
+    
+    /* ボタン自体の縦マージンも削減（全体） */
+    .stButton {
+        margin-bottom: 0px !important;
     }
     </style>
 """, unsafe_allow_html=True)
