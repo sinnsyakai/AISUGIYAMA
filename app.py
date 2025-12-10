@@ -32,10 +32,18 @@ if "first_load" not in st.session_state:
     components.html(
         """
         <script>
-            // Force scroll to top on load
-            window.parent.scrollTo(0, 0);
-            var main = window.parent.document.querySelector(".main");
-            if (main) { main.scrollTop = 0; }
+            // Force scroll to top on load with delay
+            setTimeout(function() {
+                window.parent.scrollTo(0, 0);
+                var main = window.parent.document.querySelector(".main");
+                if (main) { main.scrollTop = 0; }
+                console.log("Scroll to top forced (v2.0)");
+            }, 100); // 100ms delay
+            
+            // Backup retry
+            setTimeout(function() {
+                window.parent.scrollTo(0, 0);
+            }, 500);
         </script>
         """,
         height=0
@@ -492,7 +500,7 @@ st.markdown("""
     }
     </style>
     <div class="mobile-disclaimer">
-        ※ AIの回答は間違っている場合もあります (v1.5)
+        ※ AIの回答は間違っている場合もあります (v2.0 Check)
     </div>
     """, unsafe_allow_html=True)
 
@@ -589,3 +597,6 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                     error_msg = f"エラーが発生しました: {e}"
                     st.error(error_msg)
                     st.session_state.messages.append({"role": "assistant", "content": "申し訳ありません。エラーが発生しました。"})
+
+# Final Unconditional Spacer (For Layout Overlap Prevention)
+st.markdown('<div id="layout-spacer" style="height: 600px; width: 100%;"></div>', unsafe_allow_html=True)
