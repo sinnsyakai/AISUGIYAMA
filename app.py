@@ -56,6 +56,7 @@ st.markdown("""
     /* 1. 全体の背景色 */
     .stApp {
         background-color: #f0fdf4;
+        overflow-x: hidden !important; /* 横揺れ防止 */
     }
     
     /* 2. ヘッダー・フッター・ツールバー・ハンバーガーメニューの完全非表示 */
@@ -501,7 +502,7 @@ st.markdown("""
     }
     </style>
     <div class="mobile-disclaimer">
-        ※ AIの回答は間違っている場合もあります (v2.4 PC 350px)
+        ※ AIの回答は間違っている場合もあります (v3.0 Fix & Check)
     </div>
     """, unsafe_allow_html=True)
 
