@@ -180,7 +180,7 @@ st.markdown("""
     
     /* メインコンテンツの最下部に余白を追加して、入力欄と被らないようにする */
     div[data-testid="block-container"] {
-        padding-bottom: 500px !important;
+        padding-bottom: 120px !important;
     }
 
     /* 送信ボタン */
@@ -202,7 +202,7 @@ st.markdown("""
         /* メインコンテンツの開始位置を上に上げる */
         div[data-testid="block-container"] {
             padding-top: 10px !important; 
-            padding-bottom: 380px !important;
+            padding-bottom: 180px !important;
         }
         
         /* スマホでのボタン縦並び時の隙間を詰める */
@@ -501,7 +501,7 @@ st.markdown("""
     }
     </style>
     <div class="mobile-disclaimer">
-        ※ AIの回答は間違っている場合もあります (v2.0 Check)
+        ※ AIの回答は間違っている場合もあります (v2.1 Refined)
     </div>
     """, unsafe_allow_html=True)
 
@@ -561,8 +561,7 @@ if len(st.session_state.messages) == 0:
             st.session_state.messages.append({"role": "user", "content": examples[3]})
             st.rerun()
             
-    # モバイルで最下部が隠れないようにするための余白
-    st.markdown('<div style="height: 300px;"></div>', unsafe_allow_html=True)
+            st.rerun()
 
 # 4. Generate Response
 if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
@@ -599,5 +598,4 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                     st.error(error_msg)
                     st.session_state.messages.append({"role": "assistant", "content": "申し訳ありません。エラーが発生しました。"})
 
-# Final Unconditional Spacer (For Layout Overlap Prevention)
-st.markdown('<div id="layout-spacer" style="height: 600px; width: 100%;"></div>', unsafe_allow_html=True)
+                    st.session_state.messages.append({"role": "assistant", "content": "申し訳ありません。エラーが発生しました。"})
