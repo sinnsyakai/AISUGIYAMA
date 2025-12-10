@@ -180,7 +180,7 @@ st.markdown("""
     
     /* メインコンテンツの最下部に余白を追加して、入力欄と被らないようにする */
     div[data-testid="block-container"] {
-        padding-bottom: 120px !important;
+        padding-bottom: 250px !important;
     }
 
     /* 送信ボタン */
@@ -202,7 +202,7 @@ st.markdown("""
         /* メインコンテンツの開始位置を上に上げる */
         div[data-testid="block-container"] {
             padding-top: 10px !important; 
-            padding-bottom: 180px !important;
+            padding-bottom: 200px !important;
         }
         
         /* スマホでのボタン縦並び時の隙間を詰める */
@@ -501,7 +501,7 @@ st.markdown("""
     }
     </style>
     <div class="mobile-disclaimer">
-        ※ AIの回答は間違っている場合もあります (v2.1 Refined)
+        ※ AIの回答は間違っている場合もあります (v2.3 Layout Tune)
     </div>
     """, unsafe_allow_html=True)
 
