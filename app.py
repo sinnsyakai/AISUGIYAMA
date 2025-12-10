@@ -25,6 +25,22 @@ load_dotenv()
 
 st.set_page_config(page_title="AIすぎやま", page_icon="assets/new_icon.jpg")
 
+# JS for Scroll to Top (Mobile Fix)
+import streamlit.components.v1 as components
+if "first_load" not in st.session_state:
+    st.session_state.first_load = True
+    components.html(
+        """
+        <script>
+            // Force scroll to top on load
+            window.parent.scrollTo(0, 0);
+            var main = window.parent.document.querySelector(".main");
+            if (main) { main.scrollTop = 0; }
+        </script>
+        """,
+        height=0
+    )
+
 # ▼▼▼ ここに最強版CSSを配置（他の処理よりも先に読み込ませる） ▼▼▼
 st.markdown("""
     <style>
@@ -155,7 +171,7 @@ st.markdown("""
     
     /* メインコンテンツの最下部に余白を追加して、入力欄と被らないようにする */
     div[data-testid="block-container"] {
-        padding-bottom: 320px !important;
+        padding-bottom: 500px !important;
     }
 
     /* 送信ボタン */
