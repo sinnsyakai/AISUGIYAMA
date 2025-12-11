@@ -155,8 +155,9 @@ st.markdown("""
         max-width: 100vw !important;
     }
 
-    /* メインコンテンツの最下部に余白を追加 - PC版 500px */
+    /* メインコンテンツの最下部に余白を追加 - PC版 500px & タイトル表示用トップ余白 */
     div[data-testid="block-container"] {
+        padding-top: 60px !important;
         padding-bottom: 500px !important;
     }
 
@@ -344,7 +345,7 @@ def create_rag_chain(vector_store, model_name, sources):
     # Users requested "3.0" -> "gemini-3.0-pro"
     # Fallbacks: "gemini-2.5-pro" (stable high end), "gemini-1.5-pro-002" (working fallback)
     
-    target_models = ["gemini-3.0-pro", "gemini-2.5-pro", "gemini-1.5-pro-002", "gemini-2.0-flash-exp"]
+    target_models = ["gemini-2.5-pro", "gemini-1.5-pro-002", "gemini-2.0-flash-exp"]
     llm = None
     
     for model in target_models:
