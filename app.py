@@ -31,6 +31,7 @@ components.html(
     """
     <script>
         window.parent.document.querySelector('[data-testid="stAppViewContainer"]').scrollTo(0, 0);
+        window.parent.document.documentElement.lang = 'ja';
     </script>
     """,
     height=0,
@@ -166,10 +167,11 @@ st.markdown("""
         max-width: 100vw !important;
     }
 
-    /* メインコンテンツの最下部に余白を追加 - PC版 500px & タイトル表示用トップ余白 */
+    /* メインコンテンツの最下部に余白を追加 - PC版 500px & タイトル表示用トップ余白
+       → スタート画面で崩れるため、globalでのbottom paddingは削除し、動的に追加する方式に変更 */
     div[data-testid="block-container"] {
         padding-top: 60px !important;
-        padding-bottom: 500px !important;
+        /* padding-bottom: 500px !important;  <-- ここを削除 */
     }
 
     /* 送信ボタン */
@@ -191,7 +193,7 @@ st.markdown("""
         /* メインコンテンツ - スマホ版 600px & ページトップ (タイトルが見えるように60px確保) */
         div[data-testid="block-container"] {
             padding-top: 60px !important; 
-            padding-bottom: 600px !important;
+            /* padding-bottom: 600px !important; <-- ここも削除 */
         }
         
         /* スマホでのボタン縦並び時の隙間を詰める */
@@ -581,8 +583,8 @@ if len(st.session_state.messages) == 0:
             st.session_state.messages.append({"role": "user", "content": examples[3]})
             st.rerun()
             
-    # スマホ版冒頭画面のスクロール余白 (入力欄と被らないように)
-    st.markdown("<div style='height: 300px;'></div>", unsafe_allow_html=True)
+    # スマホ版冒頭画面のスクロール余白 (入力欄と被らないように - スタート時は小さく)
+    st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
 
 # 4. Generate Response
 if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
@@ -620,3 +622,8 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                     error_msg = f"エラーが発生しました: {e}"
                     st.error(error_msg)
                     st.session_state.messages.append({"role": "assistant", "content": "申し訳ありません。エラーが発生しました。"})
+
+# 5. チャットモード時のみ、最下部に大きな余白を追加（入力欄被り防止）
+if len(st.session_state.messages) > 0:
+    # PC: 500px, スマホ: 600px 相当のスペーサー
+    st.markdown("<div style='height: 600px;'></div>", unsafe_allow_html=True)
