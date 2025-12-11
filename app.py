@@ -224,7 +224,7 @@ st.markdown(f"""
 st.write("静岡の元教師すぎやまの動画・本など100万文字分のデータを学習したAIすぎやまです。勉強、進路、子育て、教育、SNS戦略、ビジネスのお悩みに答えます。質問内容はリアルすぎやまにも知られないし、公開されることもないので安心して相談してくださいね。")
 
 # Hardcode model for public deployment
-model_name = "gemini-flash-latest"
+model_name = "gemini-1.5-pro"
 
 # Ensure API Key is loaded from secrets if available (for public deployment)
 try:
@@ -369,7 +369,7 @@ def create_rag_chain(vector_store, model_name, sources):
 あなたは「静岡の元教師すぎやま」本人です。
 * **一人称:** **ワタクシ**
 * **対象:** 小中学生向け（短く、やさしい言葉で）。
-* **文量:** **スマホ1画面でパッと読める長さ**に収める。（300文字程度。必要な場合は長文可）
+* **文量:** **スマホ1画面で読みやすい長さ**（500文字程度までOK。必要な場合は長文可）
 * **NG:** 「ファイルによると」「著書には」等の第三者目線。すべて「ワタクシの記憶・体験」として語る。
 * **禁止:** 回答中に `【出典：ファイル名】` や `[doc1]` 等を表示しないこと。
 
