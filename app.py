@@ -235,7 +235,7 @@ st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
 st.markdown(f"""
     <div style="display: flex; align-items: center; gap: 15px;">
         <img src="data:image/jpeg;base64,{icon_base64}" width="80" style="border-radius: 10px;">
-        <h1 style="margin: 0; color: #065f46;">AIすぎやま</h1>
+        <h1 style="margin: 0; color: #065f46;">AIすぎやま v3.1</h1>
     </div>
     """, unsafe_allow_html=True)
 st.write("静岡の元教師すぎやまの動画・本など100万文字分のデータを学習したAIすぎやまです。勉強、進路、子育て、教育、SNS戦略、ビジネスのお悩みに答えます。質問内容はリアルすぎやまにも知られないし、公開されることもないので安心して相談してくださいね。")
