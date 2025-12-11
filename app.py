@@ -216,6 +216,9 @@ def get_image_base64(path):
 
 icon_base64 = get_image_base64("assets/high_res_icon.jpg")
 
+# ページ上部の固定ヘッダーで隠れないようにスペーサーを追加
+st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
+
 st.markdown(f"""
     <div style="display: flex; align-items: center; gap: 15px;">
         <img src="data:image/jpeg;base64,{icon_base64}" width="80" style="border-radius: 10px;">
@@ -598,6 +601,8 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                             full_response += chunk["answer"]
                             response_container.markdown(full_response)
                     
+                    # 入力欄と被らないように、回答の最後に空行を強制追加
+                    full_response += "\n\n<br><br><br>"
                     st.session_state.messages.append({"role": "assistant", "content": full_response})
                     
                 except Exception as e:
