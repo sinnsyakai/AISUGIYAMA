@@ -25,6 +25,17 @@ load_dotenv()
 
 st.set_page_config(page_title="AIすぎやま", page_icon="assets/new_icon.jpg")
 
+# JSで強制的にスクロール位置をトップに戻す（読み込み時のオートスクロール対策）
+import streamlit.components.v1 as components
+components.html(
+    """
+    <script>
+        window.parent.document.querySelector('[data-testid="stAppViewContainer"]').scrollTo(0, 0);
+    </script>
+    """,
+    height=0,
+)
+
 # ▼▼▼ ここに最強版CSSを配置（他の処理よりも先に読み込ませる） ▼▼▼
 st.markdown("""
     <style>
@@ -348,7 +359,7 @@ def create_rag_chain(vector_store, model_name, sources):
     # Users requested "3.0" -> "gemini-3.0-pro"
     # Fallbacks: "gemini-2.5-pro" (stable high end), "gemini-1.5-pro-002" (working fallback)
     
-    target_models = ["gemini-2.5-pro", "gemini-1.5-pro-002", "gemini-2.0-flash-exp"]
+    target_models = ["gemini-1.5-pro-002", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-1.5-flash"]
     llm = None
     
     for model in target_models:
