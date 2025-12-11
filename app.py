@@ -223,8 +223,8 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 st.write("静岡の元教師すぎやまの動画・本など100万文字分のデータを学習したAIすぎやまです。勉強、進路、子育て、教育、SNS戦略、ビジネスのお悩みに答えます。質問内容はリアルすぎやまにも知られないし、公開されることもないので安心して相談してくださいね。")
 
-# Hardcode model for public deployment
-model_name = "gemini-1.5-pro-latest"
+# Hardcode model for public deployment (Deprecated: Logic moved inside create_rag_chain)
+# model_name = "gemini-3.0-pro"
 
 # Ensure API Key is loaded from secrets if available (for public deployment)
 try:
@@ -336,7 +336,29 @@ def create_rag_chain(vector_store, model_name, sources):
         }
     )
     
-    llm = ChatGoogleGenerativeAI(model=model_name, temperature=0.7, streaming=True)
+    # Try to initialize LLM with fallback models
+    # Users requested "3.0" -> "gemini-3.0-pro"
+    # Fallbacks: "gemini-2.5-pro" (stable high end), "gemini-2.0-flash-exp" (working fallback)
+    
+    target_models = ["gemini-3.0-pro", "gemini-2.5-pro", "gemini-2.0-flash-exp"]
+    llm = None
+    
+    # Simple instantiation doesn't validate API access, so we normally just pick the first one.
+    # However, to avoid "Application failed to respond" (crash), we need to ensure the library accepts it.
+    # We will try to instantiate. If the library validates names locally and fails, we catch it.
+    
+    for model in target_models:
+        try:
+            llm = ChatGoogleGenerativeAI(model=model, temperature=0.7, streaming=True)
+            print(f"Model initialized: {model}")
+            break
+        except Exception as e:
+            print(f"Failed to initialize model {model}: {e}")
+            continue
+            
+    if not llm:
+        st.error("AIモデルの初期化に失敗しました。")
+        return None
     
     # Contextualize question prompt
     contextualize_q_system_prompt = """Given a chat history and the latest user question \
@@ -457,7 +479,7 @@ if not selected_sources:
     st.warning("検索対象が選択されていません。設定から1つ以上の資料を選択してください。")
     rag_chain = None
 else:
-    rag_chain = create_rag_chain(vector_store, model_name, selected_sources)
+    rag_chain = create_rag_chain(vector_store, None, selected_sources)
 
 
 # Disclaimer for mobile (fixed position at bottom)
