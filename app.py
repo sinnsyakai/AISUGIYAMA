@@ -25,40 +25,9 @@ load_dotenv()
 
 st.set_page_config(page_title="AIすぎやま", page_icon="assets/new_icon.jpg")
 
-# JS for Scroll to Top (Mobile Fix)
-# # JS for Scroll to Top (Mobile Fix) - DISABLED due to crash investigation
-# import streamlit.components.v1 as components
-# if "first_load" not in st.session_state:
-#     st.session_state.first_load = True
-#     components.html(
-#         """
-#         <script>
-#             // Force scroll to top on load with delay
-#             setTimeout(function() {
-#                 window.parent.scrollTo(0, 0);
-#                 var main = window.parent.document.querySelector(".main");
-#                 if (main) { main.scrollTop = 0; }
-#                 console.log("Scroll to top forced (v2.0)");
-#             }, 100); // 100ms delay
-#             
-#             // Backup retry
-#             setTimeout(function() {
-#                 window.parent.scrollTo(0, 0);
-#             }, 500);
-#         </script>
-#         """,
-#         height=0
-#     )
-
 # ▼▼▼ ここに最強版CSSを配置（他の処理よりも先に読み込ませる） ▼▼▼
 st.markdown("""
     <style>
-    /* 1. 全体の背景色 */
-    .stApp {
-        background-color: #f0fdf4;
-        overflow-x: hidden !important; /* 横揺れ防止 */
-    }
-    
     /* 2. ヘッダー・フッター・ツールバー・ハンバーガーメニューの完全非表示 */
     header, footer, 
     [data-testid="stHeader"], 
@@ -179,9 +148,16 @@ st.markdown("""
     }
 
     
-    /* メインコンテンツの最下部に余白を追加して、入力欄と被らないようにする */
+    /* 1. 全体の背景色 & 横揺れ防止 (最強版) */
+    html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="block-container"] {
+        background-color: #f0fdf4;
+        overflow-x: hidden !important; /* 横スクロールを強制無効化 */
+        max-width: 100vw !important;
+    }
+
+    /* メインコンテンツの最下部に余白を追加 - PC版 500px */
     div[data-testid="block-container"] {
-        padding-bottom: 350px !important;
+        padding-bottom: 500px !important;
     }
 
     /* 送信ボタン */
@@ -200,10 +176,10 @@ st.markdown("""
             bottom: 25px !important;
         }
 
-        /* メインコンテンツの開始位置を上に上げる */
+        /* メインコンテンツ - スマホ版 600px & ページトップ */
         div[data-testid="block-container"] {
-            padding-top: 10px !important; 
-            padding-bottom: 200px !important;
+            padding-top: 0px !important; 
+            padding-bottom: 600px !important;
         }
         
         /* スマホでのボタン縦並び時の隙間を詰める */
@@ -502,7 +478,7 @@ st.markdown("""
     }
     </style>
     <div class="mobile-disclaimer">
-        ※ AIの回答は間違っている場合もあります (v3.0 Fix & Check)
+        ※ AIの回答は間違っている場合もあります (v1.5)
     </div>
     """, unsafe_allow_html=True)
 
@@ -562,7 +538,8 @@ if len(st.session_state.messages) == 0:
             st.session_state.messages.append({"role": "user", "content": examples[3]})
             st.rerun()
             
-            st.rerun()
+    # スマホ版冒頭画面のスクロール余白 (入力欄と被らないように)
+    st.markdown("<div style='height: 300px;'></div>", unsafe_allow_html=True)
 
 # 4. Generate Response
 if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
@@ -597,6 +574,4 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                 except Exception as e:
                     error_msg = f"エラーが発生しました: {e}"
                     st.error(error_msg)
-                    st.session_state.messages.append({"role": "assistant", "content": "申し訳ありません。エラーが発生しました。"})
-
                     st.session_state.messages.append({"role": "assistant", "content": "申し訳ありません。エラーが発生しました。"})
