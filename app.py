@@ -224,7 +224,7 @@ st.markdown(f"""
 st.write("静岡の元教師すぎやまの動画・本など100万文字分のデータを学習したAIすぎやまです。勉強、進路、子育て、教育、SNS戦略、ビジネスのお悩みに答えます。質問内容はリアルすぎやまにも知られないし、公開されることもないので安心して相談してくださいね。")
 
 # Hardcode model for public deployment
-model_name = "gemini-1.5-pro"
+model_name = "gemini-2.0-flash-exp"
 
 # Ensure API Key is loaded from secrets if available (for public deployment)
 try:
