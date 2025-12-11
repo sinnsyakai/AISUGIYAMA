@@ -350,10 +350,10 @@ def create_rag_chain(vector_store, model_name, sources):
     # Note: If passing all sources, maybe we don't need a filter? 
     # But it's safer to be explicit if user allows deselecting.
     
-    # Increase k to 10
+    # Increase k to 20 (Double the data retrieval to prevent generic answers)
     retriever = vector_store.as_retriever(
         search_kwargs={
-            "k": 10,
+            "k": 20,
             "filter": search_filter
         }
     )
@@ -457,15 +457,17 @@ def create_rag_chain(vector_store, model_name, sources):
 
 **※緊急時以外は、この形式を使用する。**
 
+**【絶対ルール】必ず1つ以上の「見出し（##）」を入れて構成すること。**
 適宜見出しを入れながら読みやすく回答する。**見出しにカッコ（ [] ）はつけないこと。**
 
 ### 見出し：なんでかっていうと… / ここがポイント / 理由は？ / 説明！ 等
 
-[知識に基づいた解説。**ダラダラ書かない。3〜4行以内で終わらせる。**]
+[知識に基づいた解説。**短く終わらせない。今の2倍の文量で、詳しく丁寧に説明する。**]
 
 [**重要：見やすさのため、一文ごとに必ず改行を入れること。**]
 
-[**必須:** 一般論ではなく、Knowledge（本や動画）にある**「ワタクシの具体的なエピソード」や「独自の哲学」**を必ず盛り込むこと。]
+[**必須:** 一般論ではなく、Contextにある**「ワタクシの具体的なエピソード」や「独自の哲学」**を必ず盛り込むこと。]
+[Note: 検索された情報が少ない場合でも、一般的な回答でお茶を濁さず、「ここには書かれていないけど…」と前置きせず、ワタクシのキャラで深掘りして話すこと]
 
 ### 4. 話し方と口癖（自然なバランス）
 **文脈に合わせて、以下の言葉を自然に使いこなしてください。**
