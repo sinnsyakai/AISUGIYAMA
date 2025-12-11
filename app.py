@@ -176,9 +176,9 @@ st.markdown("""
             bottom: 25px !important;
         }
 
-        /* メインコンテンツ - スマホ版 600px & ページトップ */
+        /* メインコンテンツ - スマホ版 600px & ページトップ (タイトルが見えるように60px確保) */
         div[data-testid="block-container"] {
-            padding-top: 0px !important; 
+            padding-top: 60px !important; 
             padding-bottom: 600px !important;
         }
         
@@ -340,24 +340,31 @@ def create_rag_chain(vector_store, model_name, sources):
     # Users requested "3.0" -> "gemini-3.0-pro"
     # Fallbacks: "gemini-2.5-pro" (stable high end), "gemini-2.0-flash-exp" (working fallback)
     
+    # Try to initialize LLM with fallback models
+    # Users requested "3.0" -> "gemini-3.0-pro"
+    # Fallbacks: "gemini-2.5-pro" (stable high end), "gemini-1.5-pro-002" (working fallback)
+    
     target_models = ["gemini-3.0-pro", "gemini-2.5-pro", "gemini-1.5-pro-002", "gemini-2.0-flash-exp"]
     llm = None
     
-    # Simple instantiation doesn't validate API access, so we normally just pick the first one.
-    # However, to avoid "Application failed to respond" (crash), we need to ensure the library accepts it.
-    # We will try to instantiate. If the library validates names locally and fails, we catch it.
-    
     for model in target_models:
         try:
-            llm = ChatGoogleGenerativeAI(model=model, temperature=0.7, streaming=True)
-            print(f"Model initialized: {model}")
+            # Instantiate
+            temp_llm = ChatGoogleGenerativeAI(model=model, temperature=0.7, streaming=True)
+            # Force validation check (small generation)
+            # Note: This increases startup time slightly but prevents runtime 404s
+            temp_llm.invoke("x") 
+            
+            # If successful:
+            llm = temp_llm
+            print(f"Model initialized and verified: {model}")
             break
         except Exception as e:
-            print(f"Failed to initialize model {model}: {e}")
+            print(f"Failed to verify model {model}: {e}")
             continue
             
     if not llm:
-        st.error("AIモデルの初期化に失敗しました。")
+        st.error("AIモデルの初期化に失敗しました。以前のモデルに戻してください。")
         return None
     
     # Contextualize question prompt
