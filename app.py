@@ -398,13 +398,6 @@ def create_rag_chain(vector_store, llm_instance, sources):
         }
     )
     
-        }
-    )
-    
-    # LLM is now passed as argument (cached externally)
-    
-    # Contextualize question prompt
-    
     # Contextualize question prompt
     contextualize_q_system_prompt = """Given a chat history and the latest user question \
     which might reference context in the chat history, formulate a standalone question \
