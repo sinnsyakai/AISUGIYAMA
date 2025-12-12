@@ -30,13 +30,23 @@ import streamlit.components.v1 as components
 components.html(
     """
     <script>
-        window.parent.document.querySelector('[data-testid="stAppViewContainer"]').scrollTo(0, 0);
-        window.parent.document.documentElement.lang = 'ja';
-        // 翻訳ポップアップ抑制
-        const meta = window.parent.document.createElement('meta');
-        meta.name = 'google';
-        meta.content = 'notranslate';
-        window.parent.document.head.appendChild(meta);
+        const fixUI = () => {
+            const container = window.parent.document.querySelector('[data-testid="stAppViewContainer"]');
+            if (container) container.scrollTo(0, 0);
+            window.parent.document.documentElement.lang = 'ja';
+            
+            // 翻訳ポップアップ抑制 (metaタグ)
+            if (!window.parent.document.querySelector('meta[name="google"][content="notranslate"]')) {
+                const meta = window.parent.document.createElement('meta');
+                meta.name = 'google';
+                meta.content = 'notranslate';
+                window.parent.document.head.appendChild(meta);
+            }
+        };
+        // 読み込み直後と、少し経ってから何度か実行して確実に適用
+        fixUI();
+        setTimeout(fixUI, 500);
+        setTimeout(fixUI, 2000);
     </script>
     """,
     height=0,
@@ -321,8 +331,38 @@ def get_vector_store():
 # Default to all sources if settings are hidden
 selected_sources = get_available_sources()
 
+# Initialize LLM (Cached to prevent re-validation lag)
+@st.cache_resource
+def get_llm():
+    target_models = ["gemini-1.5-pro-002", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-1.5-flash"]
+    llm = None
+    
+    for model in target_models:
+        try:
+            # Instantiate
+            temp_llm = ChatGoogleGenerativeAI(model=model, temperature=0.7, streaming=True)
+            # Force validation check (small generation)
+            # This is slow, so we MUST cache it.
+            temp_llm.invoke("x") 
+            
+            # If successful:
+            llm = temp_llm
+            print(f"Model initialized and verified: {model}")
+            return llm
+        except Exception as e:
+            print(f"Failed to verify model {model}: {e}")
+            continue
+    return None
+
+llm = get_llm()
+
+if not llm:
+    st.error("AIモデルの初期化に失敗しました。")
+    st.stop()
+
+
 # RAG Chain Creation (Uncached or separated from heavy loading)
-def create_rag_chain(vector_store, model_name, sources):
+def create_rag_chain(vector_store, llm_instance, sources):
     if not sources:
         return None
         
@@ -358,36 +398,12 @@ def create_rag_chain(vector_store, model_name, sources):
         }
     )
     
-    # Try to initialize LLM with fallback models
-    # Users requested "3.0" -> "gemini-3.0-pro"
-    # Fallbacks: "gemini-2.5-pro" (stable high end), "gemini-2.0-flash-exp" (working fallback)
+        }
+    )
     
-    # Try to initialize LLM with fallback models
-    # Users requested "3.0" -> "gemini-3.0-pro"
-    # Fallbacks: "gemini-2.5-pro" (stable high end), "gemini-1.5-pro-002" (working fallback)
+    # LLM is now passed as argument (cached externally)
     
-    target_models = ["gemini-1.5-pro-002", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-1.5-flash"]
-    llm = None
-    
-    for model in target_models:
-        try:
-            # Instantiate
-            temp_llm = ChatGoogleGenerativeAI(model=model, temperature=0.7, streaming=True)
-            # Force validation check (small generation)
-            # Note: This increases startup time slightly but prevents runtime 404s
-            temp_llm.invoke("x") 
-            
-            # If successful:
-            llm = temp_llm
-            print(f"Model initialized and verified: {model}")
-            break
-        except Exception as e:
-            print(f"Failed to verify model {model}: {e}")
-            continue
-            
-    if not llm:
-        st.error("AIモデルの初期化に失敗しました。以前のモデルに戻してください。")
-        return None
+    # Contextualize question prompt
     
     # Contextualize question prompt
     contextualize_q_system_prompt = """Given a chat history and the latest user question \
@@ -507,7 +523,7 @@ def create_rag_chain(vector_store, model_name, sources):
         ]
     )
     
-    question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+    question_answer_chain = create_stuff_documents_chain(llm_instance, qa_prompt)
     rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
     
     return rag_chain
@@ -525,7 +541,7 @@ if not selected_sources:
     st.warning("検索対象が選択されていません。設定から1つ以上の資料を選択してください。")
     rag_chain = None
 else:
-    rag_chain = create_rag_chain(vector_store, None, selected_sources)
+    rag_chain = create_rag_chain(vector_store, llm, selected_sources)
 
 
 # Disclaimer for mobile (fixed position at bottom)
@@ -564,10 +580,11 @@ if prompt := st.chat_input("何か質問はありますか？"):
 for message in st.session_state.messages:
     if message["role"] == "assistant":
         with st.chat_message(message["role"], avatar="assets/new_icon.jpg"):
-            st.markdown(message["content"])
+            # HTMLタグ (<br>等) を有効にするために unsafe_allow_html=True
+            st.markdown(message["content"], unsafe_allow_html=True)
     else:
         with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+            st.markdown(message["content"], unsafe_allow_html=True)
 
 # 3. Example Questions (Only if history is empty)
 if len(st.session_state.messages) == 0:
