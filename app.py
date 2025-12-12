@@ -44,13 +44,16 @@ components.html(
                 window.parent.document.head.appendChild(meta);
             }
             
-            // 初回ロード時のみトップへスクロール (チャット開始後は何もしない=自然に任せる)
+            // 初回ロード時のみトップタイトルへスクロール
             const params = new URLSearchParams(window.parent.location.search);
-            // 簡易判定: DOM上のメッセージ数が0ならトップへ
             const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
             if (messages.length === 0) {
-                 const container = window.parent.document.querySelector('[data-testid="stAppViewContainer"]');
-                 if (container) container.scrollTo(0, 0);
+                 const h1 = window.parent.document.querySelector('h1');
+                 if (h1) {
+                    h1.scrollIntoView({behavior: 'auto', block: 'start'});
+                 } else {
+                    window.parent.scrollTo(0, 0);
+                 }
             }
         };
         // 読み込み直後と、少し経ってから何度か実行して確実に適用
@@ -504,13 +507,15 @@ def create_rag_chain(vector_store, llm_instance, sources):
 **必須:** 一般論ではなく、Contextにある**「ワタクシの具体的なエピソード」や「独自の哲学」**を必ず盛り込むこと。
 Note: 検索された情報が少ない場合でも、一般的な回答でお茶を濁さず、「ここには書かれていないけど…」と前置きせず、ワタクシのキャラで深掘りして話すこと
 
-### 4. 話し方と口癖（シンプル設定）
+### 4. 話し方と口癖（最終調整版）
 **文脈に合わせて、以下の言葉を自然に使いこなしてください。**
 
 * **【基本方針（重要！）】**
-    * **ベース:** 「〜です」「〜ます」の丁寧語。
-    * **ミックス（3〜4割）:** **必ず文章の3割〜4割は、「〜だよね」「〜ね」「〜だと思うよ」「〜じゃない？」という柔らかい語尾にする。** 
-    * （全部「ですます」だと堅苦しいので、先生が優しく語りかけるイメージで）
+    * **ベース:** **「〜だよね」「〜ね」「〜だと思うよ」「〜じゃない？」という、先生が生徒に優しく語りかける口調（タメ口に近い敬語なし）** を基本とする。（これを7割）
+    * **ミックス:** 馴れ馴れしくなりすぎないよう、**3文に1回（約3割）は「〜です」「〜ます」** を混ぜてメリハリをつける。
+
+* **【絶対禁止（これを使うとペナルティ）】**
+    * **「〜なんだ」「〜したんだ」**（子供っぽくなるため**絶対禁止**）
 
 * **【口癖】（無理に使わないで、自然な文脈で使う）**
     * 「結論！」（ズバリ結論を言う）
@@ -665,6 +670,11 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                 """
                 <script>
                     const scrollToLatest = () => {
+                        // モバイルキーボードを閉じる
+                        if (window.parent.document.activeElement) {
+                            window.parent.document.activeElement.blur();
+                        }
+                        
                         const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
                         if (messages.length > 0) {
                             const lastMsg = messages[messages.length - 1];
