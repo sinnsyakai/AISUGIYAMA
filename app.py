@@ -490,7 +490,7 @@ def create_rag_chain(vector_store, llm_instance, sources):
 
 ### 見出し：なんでかっていうと… / ここがポイント / 理由は？ / 説明！ 等
 
-### 見出し：なんでかっていうと… / ここがポイント / 理由は？ / 説明！ 等
+
 
 知識に基づいた解説。**短く終わらせない。1つの見出しにつき、今の倍の文字数（200〜300文字以上）を使って、詳しく丁寧に説明する。**
 
@@ -652,6 +652,24 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
         with st.chat_message("assistant", avatar="assets/new_icon.jpg"):
             # 「ちょっと待ってね」の位置調整（かぶり防止）
             st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+            
+            # 質問送信直後、自分の質問と「ちょっと待ってね」が見えるようにスクロール
+            components.html(
+                """
+                <script>
+                    const scrollToLatest = () => {
+                        const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
+                        if (messages.length > 0) {
+                            const lastMsg = messages[messages.length - 1];
+                            if (lastMsg) lastMsg.scrollIntoView({behavior: 'smooth', block: 'center'});
+                        }
+                    };
+                    setTimeout(scrollToLatest, 100);
+                </script>
+                """,
+                height=0,
+            )
+            
             with st.spinner("ちょっと待ってね〜"):
                 # Convert session state messages to LangChain format
                 chat_history = []
@@ -681,26 +699,26 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                     
                     # 回答完了後、ユーザーの質問が見える位置までスクロール（回答の先頭付近）
                     # Streamlitのオートスクロール(底への移動)と競合するため、時間差で何度か実行して強制的に位置を合わせる
-                    # 回答完了後、今回表示された回答（最新メッセージ）の「先頭」が画面上部に来るようにスクロール
+                    # 回答完了後、ユーザーの質問が見える位置までスクロール（回答の先頭付近）
                     components.html(
                         """
                         <script>
-                            const scrollToMsg = () => {
+                            const scrollToQuestion = () => {
                                 const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
-                                if (messages.length > 0) {
-                                    // 最新のメッセージ（今の回答）を取得
-                                    const lastMsg = messages[messages.length - 1];
-                                    if (lastMsg) {
-                                        // block: 'start' で要素の上端を画面上端に合わせる
-                                        lastMsg.scrollIntoView({behavior: 'smooth', block: 'start'});
+                                if (messages.length >= 2) {
+                                    // 最後のメッセージ(回答)の一つ前(質問)を取得
+                                    const questionMsg = messages[messages.length - 2];
+                                    if (questionMsg) {
+                                        // 質問の上端を画面上端より少し余裕を持って合わせる (block: start)
+                                        questionMsg.scrollIntoView({behavior: 'smooth', block: 'start'});
                                     }
                                 }
                             };
                             
                             // 複数回実行して適用確率を上げる
-                            setTimeout(scrollToMsg, 100);
-                            setTimeout(scrollToMsg, 500);
-                            setTimeout(scrollToMsg, 1000);
+                            setTimeout(scrollToQuestion, 100);
+                            setTimeout(scrollToQuestion, 500);
+                            setTimeout(scrollToQuestion, 1000);
                         </script>
                         """,
                         height=0,
