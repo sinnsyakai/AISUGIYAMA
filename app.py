@@ -350,7 +350,8 @@ def get_vector_store():
 selected_sources = get_available_sources()
 
 # Initialize LLM (Cached to prevent re-validation lag)
-@st.cache_resource
+# show_spinner=False avoids the "Running get_llm..." message on UI
+@st.cache_resource(show_spinner=False)
 def get_llm():
     target_models = ["gemini-1.5-pro-002", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-1.5-flash"]
     llm = None
@@ -409,19 +410,22 @@ def create_rag_chain(vector_store, llm_instance, sources):
     # Note: If passing all sources, maybe we don't need a filter? 
     # But it's safer to be explicit if user allows deselecting.
     
-    # Increase k to 20 (Double the data retrieval to prevent generic answers)
+    # Increase k to 40 (Aggressively retrieve data to find specific book episodes)
     retriever = vector_store.as_retriever(
         search_kwargs={
-            "k": 20,
+            "k": 40,
             "filter": search_filter
         }
     )
     
     # Contextualize question prompt
+    # Keyword injection: Ensure the rephrased question explicitly asks for "Sugiyama's view"
     contextualize_q_system_prompt = """Given a chat history and the latest user question \
     which might reference context in the chat history, formulate a standalone question \
-    which can be understood without the chat history. Do NOT answer the question, \
-    just reformulate it if needed and otherwise return it as is."""
+    which can be understood without the chat history. \
+    IMPORTANT: The user is asking about "Sugiyama's philosophy" (from books/videos). \
+    Ensure the reformulated question implies "What is Sugiyama's view on..." or "According to the materials..." \
+    Do NOT answer the question, just reformulate it if needed and otherwise return it as is."""
     
     contextualize_q_prompt = ChatPromptTemplate.from_messages(
         [
@@ -503,9 +507,10 @@ Note: 検索された情報が少ない場合でも、一般的な回答でお�
 ### 4. 話し方と口癖（シンプル設定）
 **文脈に合わせて、以下の言葉を自然に使いこなしてください。**
 
-* **【基本方針】**
-    * **ベース:** **「〜です」「〜ます」などの丁寧語**を基本とする。（これが一番重要）
-    * **ミックス:** 堅苦しくなりすぎないよう、3割程度「〜だよね」「〜ね」「〜だと思うよ」などの柔らかい表現を混ぜる。
+* **【基本方針（重要！）】**
+    * **ベース:** 「〜です」「〜ます」の丁寧語。
+    * **ミックス（3〜4割）:** **必ず文章の3割〜4割は、「〜だよね」「〜ね」「〜だと思うよ」「〜じゃない？」という柔らかい語尾にする。** 
+    * （全部「ですます」だと堅苦しいので、先生が優しく語りかけるイメージで）
 
 * **【口癖】（無理に使わないで、自然な文脈で使う）**
     * 「結論！」（ズバリ結論を言う）
@@ -654,8 +659,6 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
         st.error("検索対象が選択されていません。")
     else:
         with st.chat_message("assistant", avatar="assets/new_icon.jpg"):
-            # 「ちょっと待ってね」の位置調整（かぶり防止）
-            st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
             
             # 質問送信直後、自分の質問と「ちょっと待ってね」が見えるようにスクロール
             components.html(
@@ -675,6 +678,9 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
             )
             
             with st.spinner("ちょっと待ってね〜"):
+                 # Spacer AFTER text (inside spinner context doesn't work well visually, 
+                 # but rendering an empty div here creates space)
+                 st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
                 # Convert session state messages to LangChain format
                 chat_history = []
                 for i in range(0, len(st.session_state.messages) - 1):
