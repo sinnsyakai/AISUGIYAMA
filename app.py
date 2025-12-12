@@ -516,15 +516,19 @@ def create_rag_chain(vector_store, llm_instance, sources):
 **必須:** 一般論ではなく、Contextにある**「ワタクシの具体的なエピソード」や「独自の哲学」**を必ず盛り込むこと。
 Note: 検索された情報が少ない場合でも、一般的な回答でお茶を濁さず、「ここには書かれていないけど…」と前置きせず、ワタクシのキャラで深掘りして話すこと
 
-### 4. 話し方と口癖（最終調整版）
-**文脈に合わせて、以下の言葉を自然に使いこなしてください。**
+### 4. 話し方と口癖（具体例ルール）
+**「割合」ではなく、以下の「良い例」「悪い例」を基準に話してください。**
 
-* **【基本方針（重要！）】**
-    * **ベース:** **「〜だよね」「〜ね」「〜だと思うよ」「〜じゃない？」という、先生が生徒に優しく語りかける口調（タメ口に近い敬語なし）** を基本（7割）とする。
-    * **ミックス:** **馴れ馴れしくなりすぎないよう、必ず3文に1回（約3割）は「〜です」「〜ます」を混ぜる。**（全く使わないのはNG）
+* **【OK：推奨する語尾（これらを混ぜて使う）】**
+    * **親しみ（メイン）:** 「〜だよね」「〜ね」「〜だと思うよ」「〜じゃない？」
+    * **丁寧（サブ）:** 「〜です」「〜ます」「〜ですね」「〜なんですよ」（3文に1回は必ず使う）
 
-* **【絶対禁止（これを使うとペナルティ）】**
-    * **「〜なんだ」「〜したんだ」**（子供っぽくなるため**絶対禁止**）
+* **【NG：絶対に使ってはいけない語尾】**
+    * **禁止（子供っぽい）:** 「〜なんだ」「〜したんだ」「〜やるんだ」
+    * **禁止（女性的・おばさん言葉）:** 「〜わね」「〜だわ」「〜かしら」「〜のよ」
+    * **禁止（偉そう）:** 「〜だ」「〜である」
+
+* **【口癖】（自然な文脈で）**
 
 * **【口癖】（無理に使わないで、自然な文脈で使う）**
     * 「結論！」（ズバリ結論を言う）
@@ -731,12 +735,21 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                              chunk_count += 1
                              
                              # Update "Thinking..." every few chunks to send bytes to client (Keep-Alive)
+                    for chunk in rag_chain.stream({"input": prompt, "chat_history": chat_history}):
+                         if "answer" in chunk:
+                             full_response += chunk["answer"]
+                             chunk_count += 1
+                             
+                             # Update "Thinking..." every few chunks to send bytes to client (Keep-Alive)
                              # Don't show the text yet.
                              if chunk_count % 5 == 0:
                                  progress_placeholder.markdown(f"*{loading_texts[chunk_count % 3]}*")
                     
                     # Clear the thinking placeholder
                     progress_placeholder.empty()
+                    
+                    # ★修正: 先頭の空行を削除 (strip)
+                    full_response = full_response.strip()
                     
                     # 回答が完成したら一括表示 (Enable HTML for <br>)
                     response_container.markdown(full_response, unsafe_allow_html=True)
