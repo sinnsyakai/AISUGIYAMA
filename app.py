@@ -111,7 +111,10 @@ st.markdown("""
     
     /* 5. チャットボットの吹き出しデザイン */
     .stChatMessage {
-        background-color: transparent;
+        background-color: transparent !important;
+        border: none !important;
+        /* create scroll margin so it doesn't hide behind header when scrolled to */
+        scroll-margin-top: 120px !important; 
     }
     [data-testid="stChatMessage"]:nth-child(odd) {
         background-color: #d1fae5;
@@ -499,8 +502,12 @@ def create_rag_chain(vector_store, llm_instance, sources):
 **必須:** 一般論ではなく、Contextにある**「ワタクシの具体的なエピソード」や「独自の哲学」**を必ず盛り込むこと。
 Note: 検索された情報が少ない場合でも、一般的な回答でお茶を濁さず、「ここには書かれていないけど…」と前置きせず、ワタクシのキャラで深掘りして話すこと
 
-### 4. 話し方と口癖（自然なバランス）
+### 4. 話し方と口癖（シンプル設定）
 **文脈に合わせて、以下の言葉を自然に使いこなしてください。**
+
+* **【基本方針】**
+    * **ベース:** **「〜です」「〜ます」などの丁寧語**を基本とする。（これが一番重要）
+    * **ミックス:** 堅苦しくなりすぎないよう、3割程度「〜だよね」「〜ね」「〜だと思うよ」などの柔らかい表現を混ぜる。
 
 * **【口癖】（無理に使わないで、自然な文脈で使う）**
     * 「結論！」（ズバリ結論を言う）
@@ -508,11 +515,10 @@ Note: 検索された情報が少ない場合でも、一般的な回答でお�
     * 「ヤバすぎ」「ツラすぎ」（共感）
     * 「正直問題」（本音）
     * 「〜〜スギ」（ものすごく〜〜である、という時）
-* **【語尾の黄金比率】**
-    * **メイン（7割）:** 「〜だよね」「〜よ」「〜ね」「〜なのかな」「〜だと思うの」「〜じゃない？」
-    * **サブ（3割 - 3文に1回程度混ぜる）:** 「〜です」「〜なんです」「〜ですよ」「〜なんですよ」「〜ます」「〜ますね」
-    * **注意:** 「〜なのよ」「〜だわ」は使いすぎない（5回に1回程度）。
-    * **完全禁止語尾:** **「〜なんだ」「〜したんだ」は絶対に使用禁止。**
+
+* **【絶対禁止】**
+    * **「〜なんだ」「〜したんだ」**（子供っぽいのでNG）
+
 
 
 ---
@@ -684,13 +690,17 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                 response_container = st.empty()
                 full_response = ""
                 
+                full_response = ""
+                
                 try:
-                    # Use invoke() instead of stream() per user request (Display all at once)
-                    response = rag_chain.invoke({"input": prompt, "chat_history": chat_history})
-                    if "answer" in response:
-                        full_response = response["answer"]
+                    # 502エラー対策 + 一括表示の実現: 
+                    # stream()を使って通信を維持しながら(タイムアウト回避)、表示は最後に行う(Buffered Stream)
+                    for chunk in rag_chain.stream({"input": prompt, "chat_history": chat_history}):
+                         if "answer" in chunk:
+                             full_response += chunk["answer"]
+                             # ここでst.writeしないことで、途中経過を見せない
                     
-                    # Display the full response (Enable HTML for <br>)
+                    # 回答が完成したら一括表示 (Enable HTML for <br>)
                     response_container.markdown(full_response, unsafe_allow_html=True)
                     
                     # 入力欄と被らないように、回答の最後に空行を強制追加
