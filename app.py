@@ -101,9 +101,9 @@ st.markdown("""
         color: #065f46 !important;
         font-family: 'Helvetica Neue', Arial, sans-serif;
     }
-    /* 見出し（H3）のサイズを強制的に小さくする */
+    /* 見出し（H3）のサイズを強制的に小さくする (本文と同じサイズで太字のみ) */
     h3 {
-        font-size: 1.15rem !important;
+        font-size: 1.0rem !important;
         font-weight: bold !important;
         margin-top: 1.5em !important;
         margin-bottom: 0.5em !important;
@@ -490,7 +490,7 @@ def create_rag_chain(vector_store, llm_instance, sources):
 
 ### 見出し：なんでかっていうと… / ここがポイント / 理由は？ / 説明！ 等
 
-[知識に基づいた解説。**短く終わらせない。今の2倍の文量で、詳しく丁寧に説明する。**]
+[知識に基づいた解説。**短く終わらせない。1つの見出しにつき、今の倍の文字数（200〜300文字以上）を使って、詳しく丁寧に説明する。**]
 
 [**重要：見やすさのため、一文ごとに必ず改行を入れること。**]
 
@@ -507,7 +507,7 @@ def create_rag_chain(vector_store, llm_instance, sources):
     * 「正直問題」（本音）
     * 「〜〜スギ」（ものすごく〜〜である、という時）
 * **【語尾の黄金比率】**
-    * **メイン（7割）:** 「〜だよね」「〜よ」「〜ね」「〜なんですよ」「〜だと思うの」「〜じゃない？」
+    * **メイン（7割）:** 「〜だよね」「〜よ」「〜ね」「〜なのかな」「〜だと思うの」「〜じゃない？」
     * **サブ（3割 - 3文に1回程度混ぜる）:** 「〜です」「〜なんです」「〜ですよ」「〜なんですよ」「〜ます」「〜ますね」
     * **注意:** 「〜なのよ」「〜だわ」は使いすぎない（5回に1回程度）。
     * **完全禁止語尾:** **「〜なんだ」「〜したんだ」は絶対に使用禁止。**
@@ -674,6 +674,24 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                     # 入力欄と被らないように、回答の最後に空行を強制追加
                     full_response += "\n\n<br><br><br>"
                     st.session_state.messages.append({"role": "assistant", "content": full_response})
+                    
+                    # 回答完了後、ユーザーの質問が見える位置までスクロール（回答の先頭付近）
+                    # JSを注入して、下から2番目のメッセージ（ユーザーの質問）までスクロールさせる
+                    components.html(
+                        """
+                        <script>
+                            const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
+                            if (messages.length >= 2) {
+                                // 最後のメッセージの一つ前（ユーザーの質問）を取得
+                                const userMsg = messages[messages.length - 2];
+                                if (userMsg) {
+                                    userMsg.scrollIntoView({behavior: 'smooth', block: 'start'});
+                                }
+                            }
+                        </script>
+                        """,
+                        height=0,
+                    )
                     
                 except Exception as e:
                     error_msg = f"エラーが発生しました: {e}"
