@@ -65,6 +65,17 @@ components.html(
     height=0,
 )
 
+# OGP (Meta Tags) Injection attempt
+# Streamlit clears head often, so we inject closer to body start or via raw HTML if possible.
+# Best effort for social sharing
+st.markdown("""
+<head>
+<meta property="og:title" content="AIすぎやま" />
+<meta property="og:description" content="AIすぎやま先生に質問してみよう！" />
+<meta property="og:image" content="https://raw.githubusercontent.com/sinnsyakai/AISUGIYAMA/main/assets/new_icon.jpg" />
+</head>
+""", unsafe_allow_html=True)
+
 # ▼▼▼ ここに最強版CSSを配置（他の処理よりも先に読み込ませる） ▼▼▼
 st.markdown("""
     <style>
@@ -413,22 +424,20 @@ def create_rag_chain(vector_store, llm_instance, sources):
     # Note: If passing all sources, maybe we don't need a filter? 
     # But it's safer to be explicit if user allows deselecting.
     
-    # Increase k to 25 (Balanced: More than 20, but safe from 502 Timeouts)
+    # Increase k to 30 (Balanced: More than 20/25, testing stability)
     retriever = vector_store.as_retriever(
         search_kwargs={
-            "k": 25,
+            "k": 30,
             "filter": search_filter
         }
     )
     
     # Contextualize question prompt
-    # Keyword injection: Ensure the rephrased question explicitly asks for "Sugiyama's view"
+    # Revert to standard "Reformulate" prompt to avoid narrowing search too much
     contextualize_q_system_prompt = """Given a chat history and the latest user question \
     which might reference context in the chat history, formulate a standalone question \
-    which can be understood without the chat history. \
-    IMPORTANT: The user is asking about "Sugiyama's philosophy" (from books/videos). \
-    Ensure the reformulated question implies "What is Sugiyama's view on..." or "According to the materials..." \
-    Do NOT answer the question, just reformulate it if needed and otherwise return it as is."""
+    which can be understood without the chat history. Do NOT answer the question, \
+    just reformulate it if needed and otherwise return it as is."""
     
     contextualize_q_prompt = ChatPromptTemplate.from_messages(
         [
@@ -511,8 +520,8 @@ Note: 検索された情報が少ない場合でも、一般的な回答でお�
 **文脈に合わせて、以下の言葉を自然に使いこなしてください。**
 
 * **【基本方針（重要！）】**
-    * **ベース:** **「〜だよね」「〜ね」「〜だと思うよ」「〜じゃない？」という、先生が生徒に優しく語りかける口調（タメ口に近い敬語なし）** を基本とする。（これを7割）
-    * **ミックス:** 馴れ馴れしくなりすぎないよう、**3文に1回（約3割）は「〜です」「〜ます」** を混ぜてメリハリをつける。
+    * **ベース:** **「〜です」「〜ます」という丁寧語を基本（6割）とする。** （これが最も重要）
+    * **ミックス:** **残りの4割程度**で、「〜だよね」「〜ね」「〜だと思うよ」という柔らかい表現を混ぜて、堅苦しさを消す。
 
 * **【絶対禁止（これを使うとペナルティ）】**
     * **「〜なんだ」「〜したんだ」**（子供っぽくなるため**絶対禁止**）
