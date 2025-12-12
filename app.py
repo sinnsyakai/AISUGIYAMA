@@ -101,9 +101,9 @@ st.markdown("""
         color: #065f46 !important;
         font-family: 'Helvetica Neue', Arial, sans-serif;
     }
-    /* 見出し（H3）のサイズを強制的に小さくする (本文と同じサイズで太字のみ) */
+    /* 見出し（H3）のサイズを強制的に小さくする (本文より少し大きく) */
     h3 {
-        font-size: 1.0rem !important;
+        font-size: 1.1rem !important;
         font-weight: bold !important;
         margin-top: 1.5em !important;
         margin-bottom: 0.5em !important;
@@ -111,8 +111,6 @@ st.markdown("""
     
     /* 5. チャットボットの吹き出しデザイン */
     .stChatMessage {
-        background-color: transparent !important;
-        border: none !important;
         /* create scroll margin so it doesn't hide behind header when scrolled to */
         scroll-margin-top: 120px !important; 
     }
@@ -693,12 +691,29 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                 full_response = ""
                 
                 try:
-                    # 502エラー対策 + 一括表示の実現: 
-                    # stream()を使って通信を維持しながら(タイムアウト回避)、表示は最後に行う(Buffered Stream)
+                    # 502エラー対策 currently failing because of silence.
+                    # Fix: Stream "Thinking..." updates to keep connection alive, 
+                    # but accumulate answer for one-shot display.
+                    
+                    full_response = ""
+                    chunk_count = 0
+                    loading_texts = ["考え中.", "考え中..", "考え中..."]
+                    
+                    # Create a placeholder for the "Thinking" animation
+                    progress_placeholder = st.empty()
+                    
                     for chunk in rag_chain.stream({"input": prompt, "chat_history": chat_history}):
                          if "answer" in chunk:
                              full_response += chunk["answer"]
-                             # ここでst.writeしないことで、途中経過を見せない
+                             chunk_count += 1
+                             
+                             # Update "Thinking..." every few chunks to send bytes to client (Keep-Alive)
+                             # Don't show the text yet.
+                             if chunk_count % 5 == 0:
+                                 progress_placeholder.markdown(f"*{loading_texts[chunk_count % 3]}*")
+                    
+                    # Clear the thinking placeholder
+                    progress_placeholder.empty()
                     
                     # 回答が完成したら一括表示 (Enable HTML for <br>)
                     response_container.markdown(full_response, unsafe_allow_html=True)
