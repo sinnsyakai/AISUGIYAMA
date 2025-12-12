@@ -413,10 +413,10 @@ def create_rag_chain(vector_store, llm_instance, sources):
     # Note: If passing all sources, maybe we don't need a filter? 
     # But it's safer to be explicit if user allows deselecting.
     
-    # Increase k to 40 (Aggressively retrieve data to find specific book episodes)
+    # Increase k to 25 (Balanced: More than 20, but safe from 502 Timeouts)
     retriever = vector_store.as_retriever(
         search_kwargs={
-            "k": 40,
+            "k": 25,
             "filter": search_filter
         }
     )
