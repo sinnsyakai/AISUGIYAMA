@@ -9,7 +9,7 @@
 - **デプロイ先**: Railway / Streamlit Cloud
 - **主要機能**: 
     - RAG (Retrieval-Augmented Generation) による知識ベース検索
-    - ストリーミング回答
+    - 一括回答表示 (ストリーミング無効化済み)
     - スマホファーストなUIデザイン（カスタムCSS）
 
 ## 2. ファイル構成

@@ -350,7 +350,8 @@ def get_llm():
     for model in target_models:
         try:
             # Instantiate
-            temp_llm = ChatGoogleGenerativeAI(model=model, temperature=0.7, streaming=True)
+            # Streaming=False per user request (Show answer at once)
+            temp_llm = ChatGoogleGenerativeAI(model=model, temperature=0.7, streaming=False)
             # Force validation check (small generation)
             # This is slow, so we MUST cache it.
             temp_llm.invoke("x") 
@@ -651,11 +652,13 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                 full_response = ""
                 
                 try:
-                    # Use stream() instead of invoke()
-                    for chunk in rag_chain.stream({"input": prompt, "chat_history": chat_history}):
-                        if "answer" in chunk:
-                            full_response += chunk["answer"]
-                            response_container.markdown(full_response)
+                    # Use invoke() instead of stream() per user request (Display all at once)
+                    response = rag_chain.invoke({"input": prompt, "chat_history": chat_history})
+                    if "answer" in response:
+                        full_response = response["answer"]
+                    
+                    # Display the full response
+                    response_container.markdown(full_response)
                     
                     # 入力欄と被らないように、回答の最後に空行を強制追加
                     full_response += "\n\n<br><br><br>"
