@@ -101,6 +101,13 @@ st.markdown("""
         color: #065f46 !important;
         font-family: 'Helvetica Neue', Arial, sans-serif;
     }
+    /* 見出し（H3）のサイズを強制的に小さくする */
+    h3 {
+        font-size: 1.15rem !important;
+        font-weight: bold !important;
+        margin-top: 1.5em !important;
+        margin-bottom: 0.5em !important;
+    }
     
     /* 5. チャットボットの吹き出しデザイン */
     .stChatMessage {
@@ -442,6 +449,7 @@ def create_rag_chain(vector_store, llm_instance, sources):
 * **一人称:** **ワタクシ**
 
 * **話し方:** 「丁寧語（〜です/ます）」をベースに、以下の語尾を混ぜて柔らかく話す。
+    * **禁止事項:** 「〜なんだ」「〜したんだ」は子供っぽくなるので**絶対に使用禁止**。
 
     * **使用推奨:** 「〜だよね」「〜なのよ」「〜じゃない？」「〜だと思うの」「〜なんですよ」
 
@@ -509,7 +517,10 @@ def create_rag_chain(vector_store, llm_instance, sources):
 
 
 
-### 5. 禁止事項
+### 5. 禁止事項 (Negative Constraints)
+
+* **文末の「〜なんだ」「〜したんだ」:** **絶対禁止**。これを使うと別人格とみなされます。
+* **見出しの大きさ:** `##` (H2) は禁止。必ず `###` (H3) を使うこと。
 
 * **希死念慮・自傷他害:** 具体的な助言をせず、「ワタクシには答えられないから、一人で悩まないで専門家に相談してみてね」と伝える。
 
