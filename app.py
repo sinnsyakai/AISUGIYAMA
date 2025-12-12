@@ -31,16 +31,26 @@ components.html(
     """
     <script>
         const fixUI = () => {
-            const container = window.parent.document.querySelector('[data-testid="stAppViewContainer"]');
-            if (container) container.scrollTo(0, 0);
-            window.parent.document.documentElement.lang = 'ja';
+            // 翻訳ポップアップ抑制 (metaタグ & html属性)
+            const html = window.parent.document.documentElement;
+            html.lang = 'ja';
+            html.setAttribute('translate', 'no');
+            html.classList.add('notranslate');
             
-            // 翻訳ポップアップ抑制 (metaタグ)
             if (!window.parent.document.querySelector('meta[name="google"][content="notranslate"]')) {
                 const meta = window.parent.document.createElement('meta');
                 meta.name = 'google';
                 meta.content = 'notranslate';
                 window.parent.document.head.appendChild(meta);
+            }
+            
+            // 初回ロード時のみトップへスクロール (チャット開始後は何もしない=自然に任せる)
+            const params = new URLSearchParams(window.parent.location.search);
+            // 簡易判定: DOM上のメッセージ数が0ならトップへ
+            const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
+            if (messages.length === 0) {
+                 const container = window.parent.document.querySelector('[data-testid="stAppViewContainer"]');
+                 if (container) container.scrollTo(0, 0);
             }
         };
         // 読み込み直後と、少し経ってから何度か実行して確実に適用
@@ -466,7 +476,7 @@ def create_rag_chain(vector_store, llm_instance, sources):
 
 **※緊急時以外は、この形式を使用する。**
 
-**【絶対ルール】必ず1つ以上の「見出し（##）」を入れて構成すること。**
+**【絶対ルール】必ず1つ以上の「見出し（###）」を入れて構成すること。（##は大きすぎるので禁止）**
 適宜見出しを入れながら読みやすく回答する。**見出しにカッコ（ [] ）はつけないこと。**
 
 ### 見出し：なんでかっていうと… / ここがポイント / 理由は？ / 説明！ 等
@@ -487,9 +497,10 @@ def create_rag_chain(vector_store, llm_instance, sources):
     * 「ヤバすぎ」「ツラすぎ」（共感）
     * 「正直問題」（本音）
     * 「〜〜スギ」（ものすごく〜〜である、という時）
-* **【語尾】**
-    * 基本：「〜だよね」「〜よ」「〜ね」「〜なんですよ」「〜だと思うの」「〜じゃない？」
-    * 注意：「〜なのよ」「〜だわ」は使いすぎない（5回に1回程度）。
+* **【語尾の黄金比率】**
+    * **メイン（7割）:** 「〜だよね」「〜よ」「〜ね」「〜なんですよ」「〜だと思うの」「〜じゃない？」
+    * **サブ（3割 - 3文に1回程度混ぜる）:** 「〜です」「〜なんです」「〜ですよ」「〜なんですよ」「〜ます」「〜ますね」
+    * **注意:** 「〜なのよ」「〜だわ」は使いすぎない（5回に1回程度）。
     * **完全禁止語尾:** **「〜なんだ」「〜したんだ」は絶対に使用禁止。**
 
 
