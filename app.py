@@ -490,12 +490,14 @@ def create_rag_chain(vector_store, llm_instance, sources):
 
 ### 見出し：なんでかっていうと… / ここがポイント / 理由は？ / 説明！ 等
 
-[知識に基づいた解説。**短く終わらせない。1つの見出しにつき、今の倍の文字数（200〜300文字以上）を使って、詳しく丁寧に説明する。**]
+### 見出し：なんでかっていうと… / ここがポイント / 理由は？ / 説明！ 等
 
-[**重要：見やすさのため、一文ごとに必ず改行を入れること。**]
+知識に基づいた解説。**短く終わらせない。1つの見出しにつき、今の倍の文字数（200〜300文字以上）を使って、詳しく丁寧に説明する。**
 
-[**必須:** 一般論ではなく、Contextにある**「ワタクシの具体的なエピソード」や「独自の哲学」**を必ず盛り込むこと。]
-[Note: 検索された情報が少ない場合でも、一般的な回答でお茶を濁さず、「ここには書かれていないけど…」と前置きせず、ワタクシのキャラで深掘りして話すこと]
+**重要：見やすさのため、一文ごとに必ず改行を入れること。**
+
+**必須:** 一般論ではなく、Contextにある**「ワタクシの具体的なエピソード」や「独自の哲学」**を必ず盛り込むこと。
+Note: 検索された情報が少ない場合でも、一般的な回答でお茶を濁さず、「ここには書かれていないけど…」と前置きせず、ワタクシのキャラで深掘りして話すこと
 
 ### 4. 話し方と口癖（自然なバランス）
 **文脈に合わせて、以下の言葉を自然に使いこなしてください。**
@@ -648,6 +650,8 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
         st.error("検索対象が選択されていません。")
     else:
         with st.chat_message("assistant", avatar="assets/new_icon.jpg"):
+            # 「ちょっと待ってね」の位置調整（かぶり防止）
+            st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
             with st.spinner("ちょっと待ってね〜"):
                 # Convert session state messages to LangChain format
                 chat_history = []
@@ -668,8 +672,8 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                     if "answer" in response:
                         full_response = response["answer"]
                     
-                    # Display the full response
-                    response_container.markdown(full_response)
+                    # Display the full response (Enable HTML for <br>)
+                    response_container.markdown(full_response, unsafe_allow_html=True)
                     
                     # 入力欄と被らないように、回答の最後に空行を強制追加
                     full_response += "\n\n<br><br><br>"
@@ -677,25 +681,26 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                     
                     # 回答完了後、ユーザーの質問が見える位置までスクロール（回答の先頭付近）
                     # Streamlitのオートスクロール(底への移動)と競合するため、時間差で何度か実行して強制的に位置を合わせる
+                    # 回答完了後、今回表示された回答（最新メッセージ）の「先頭」が画面上部に来るようにスクロール
                     components.html(
                         """
                         <script>
-                            const scrollToQuestion = () => {
+                            const scrollToMsg = () => {
                                 const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
-                                if (messages.length >= 2) {
-                                    // 最後のメッセージの一つ前（ユーザーの質問）を取得
-                                    const userMsg = messages[messages.length - 2];
-                                    if (userMsg) {
-                                        userMsg.scrollIntoView({behavior: 'smooth', block: 'start'});
+                                if (messages.length > 0) {
+                                    // 最新のメッセージ（今の回答）を取得
+                                    const lastMsg = messages[messages.length - 1];
+                                    if (lastMsg) {
+                                        // block: 'start' で要素の上端を画面上端に合わせる
+                                        lastMsg.scrollIntoView({behavior: 'smooth', block: 'start'});
                                     }
                                 }
                             };
                             
-                            // 即時、およびレンダリング完了待ちで複数回実行
-                            setTimeout(scrollToQuestion, 100);
-                            setTimeout(scrollToQuestion, 500);
-                            setTimeout(scrollToQuestion, 1000);
-                            setTimeout(scrollToQuestion, 2000);
+                            // 複数回実行して適用確率を上げる
+                            setTimeout(scrollToMsg, 100);
+                            setTimeout(scrollToMsg, 500);
+                            setTimeout(scrollToMsg, 1000);
                         </script>
                         """,
                         height=0,
