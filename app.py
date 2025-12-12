@@ -678,9 +678,9 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
             )
             
             with st.spinner("ちょっと待ってね〜"):
-                 # Spacer AFTER text (inside spinner context doesn't work well visually, 
-                 # but rendering an empty div here creates space)
-                 st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
+                # Spacer AFTER text (inside spinner context doesn't work well visually, 
+                # but rendering an empty div here creates space)
+                st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
                 # Convert session state messages to LangChain format
                 chat_history = []
                 for i in range(0, len(st.session_state.messages) - 1):
@@ -692,8 +692,6 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                 
                 prompt = st.session_state.messages[-1]["content"]
                 response_container = st.empty()
-                full_response = ""
-                
                 full_response = ""
                 
                 try:
