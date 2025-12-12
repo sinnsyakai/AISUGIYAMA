@@ -676,18 +676,26 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                     st.session_state.messages.append({"role": "assistant", "content": full_response})
                     
                     # 回答完了後、ユーザーの質問が見える位置までスクロール（回答の先頭付近）
-                    # JSを注入して、下から2番目のメッセージ（ユーザーの質問）までスクロールさせる
+                    # Streamlitのオートスクロール(底への移動)と競合するため、時間差で何度か実行して強制的に位置を合わせる
                     components.html(
                         """
                         <script>
-                            const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
-                            if (messages.length >= 2) {
-                                // 最後のメッセージの一つ前（ユーザーの質問）を取得
-                                const userMsg = messages[messages.length - 2];
-                                if (userMsg) {
-                                    userMsg.scrollIntoView({behavior: 'smooth', block: 'start'});
+                            const scrollToQuestion = () => {
+                                const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
+                                if (messages.length >= 2) {
+                                    // 最後のメッセージの一つ前（ユーザーの質問）を取得
+                                    const userMsg = messages[messages.length - 2];
+                                    if (userMsg) {
+                                        userMsg.scrollIntoView({behavior: 'smooth', block: 'start'});
+                                    }
                                 }
-                            }
+                            };
+                            
+                            // 即時、およびレンダリング完了待ちで複数回実行
+                            setTimeout(scrollToQuestion, 100);
+                            setTimeout(scrollToQuestion, 500);
+                            setTimeout(scrollToQuestion, 1000);
+                            setTimeout(scrollToQuestion, 2000);
                         </script>
                         """,
                         height=0,
