@@ -428,7 +428,7 @@ def create_rag_chain(vector_store, llm_instance, sources):
     # k=25: Balance between search quality and stability
     retriever = vector_store.as_retriever(
         search_kwargs={
-            "k": 20,
+            "k": 8,
             "filter": search_filter
         }
     )
@@ -699,15 +699,20 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
 
                     # ★後処理フィルター: 改行と語尾の修正
                     def fix_response(text):
-                        # 1. 「んだ」パターンを「なの」「んだよ」に置換
+                        # 1. 禁止語尾を置換
+                        # 「んだ」パターン
                         text = re.sub(r'んだ。', 'なの。', text)
                         text = re.sub(r'んだ！', 'んだよ！', text)
                         text = re.sub(r'んだ\n', 'なの\n', text)
                         text = re.sub(r'んだ$', 'なの', text)
                         
+                        # 「わね」「わよね」パターン → 「のよね」「なのよ」に置換
+                        text = re.sub(r'わね。', 'のよね。', text)
+                        text = re.sub(r'わね\n', 'のよね\n', text)
+                        text = re.sub(r'わよね。', 'なのよ。', text)
+                        text = re.sub(r'わよね\n', 'なのよ\n', text)
+                        
                         # 2. 句点（。）の後に改行を強制追加
-                        # ただし、すでに改行がある場合は追加しない
-                        # 「。」の後に改行がない場合、改行を追加
                         text = re.sub(r'。(?!\n)', '。\n', text)
                         
                         # 3. 「！」「？」の後にも改行を追加（すでにない場合）
