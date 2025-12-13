@@ -433,13 +433,13 @@ def create_rag_chain(vector_store, llm_instance, sources):
         }
     )
     
-    # Contextualize question prompt
-    # Preserve key intent (especially properly nouns) to ensure profile searches work.
-    contextualize_q_system_prompt = """Given a chat history and the latest user question \
-    which might reference context in the chat history, formulate a standalone question \
-    which can be understood without the chat history. \
-    If the question is about "Who is Sugiyama?", ensure the name "Sugiyama" is preserved. \
-    Do NOT answer the question, just reformulate it if needed and otherwise return it as is."""
+    # Contextualize question prompt - 日本語クエリをそのまま検索に使う
+    contextualize_q_system_prompt = \"\"\"ユーザーの質問をそのまま検索クエリとして使用してください。
+質問を言い換えたり要約したりしないでください。
+質問に含まれる固有名詞やキーワードは必ず保持してください。
+例：「おすすめの本教えて」→「おすすめの本教えて」
+例：「リコーダーってやる意味あるの」→「リコーダーってやる意味あるの」
+質問をそのまま返してください。\"\"\"
     
     contextualize_q_prompt = ChatPromptTemplate.from_messages(
         [
@@ -727,11 +727,11 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
 
                     # ★後処理フィルター: 「んだ」をOK語尾に強制置換
                     def fix_endings(text):
-                        # 「んだ」パターンを「ね」に置換
-                        text = re.sub(r'んだ。', 'ね。', text)
-                        text = re.sub(r'んだ！', 'ね！', text)
-                        text = re.sub(r'んだ\n', 'ね\n', text)
-                        text = re.sub(r'んだ$', 'ね', text)
+                        # 「んだ」パターンを「なの」「んだよ」に置換
+                        text = re.sub(r'んだ。', 'なの。', text)
+                        text = re.sub(r'んだ！', 'んだよ！', text)
+                        text = re.sub(r'んだ\n', 'なの\n', text)
+                        text = re.sub(r'んだ$', 'なの', text)
                         return text
                     
                     full_response = fix_endings(full_response)
