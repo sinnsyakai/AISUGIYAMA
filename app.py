@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import glob
+import re
 
 # ChromaDB fix for Linux (Railway/Streamlit Cloud)
 try:
@@ -721,8 +722,8 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                     # Clear the thinking placeholder
                     progress_placeholder.empty()
 
-                    # ★修正: 先頭の空行を削除 (lstripで先頭の空白も削除)
-                    full_response = full_response.lstrip()
+                    # ★修正: 先頭の空行・空白を完全に削除 (regex)
+                    full_response = re.sub(r'^[\s\n\r]+', '', full_response)
 
                     # 回答が完成したら一括表示 (Enable HTML for <br>)
                     response_container.markdown(full_response, unsafe_allow_html=True)
