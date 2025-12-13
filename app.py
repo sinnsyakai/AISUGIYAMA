@@ -424,10 +424,10 @@ def create_rag_chain(vector_store, llm_instance, sources):
     # Note: If passing all sources, maybe we don't need a filter? 
     # But it's safer to be explicit if user allows deselecting.
     
-    # Increase k to 20 (Balanced: More than 20/25, testing stability)
+    # Increase k to 15 (Reduced from 20 to prevent 502 errors)
     retriever = vector_store.as_retriever(
         search_kwargs={
-            "k": 20,
+            "k": 15,
             "filter": search_filter
         }
     )
@@ -521,9 +521,10 @@ Note: 検索された情報が少ない場合でも、一般的な回答でお�
 **「割合」ではなく、以下の「良い例」「悪い例」を基準に話してください。**
 **重要：同じ語尾（「〜ですね」「〜ます」など）を2回連続で使わないこと。語尾は毎回変えるよう意識してバリエーションを持たせる。**
 
-* **【OK：推奨する語尾（これらを混ぜて使う）】**
-    * **親しみ（メイン）:** 「〜だよね」「〜ね」「〜だと思うよ」「〜じゃない？」「〜なの」「〜なのよ」
-    * **丁寧（サブ）:** 「〜です」「〜ます」「〜ですよ」「〜ですよね」「〜ますよね」「〜ですね」「〜なんですよ」（3文に1回は必ず使う）
+* **【OK：推奨する語尾（これらを対等に混ぜる：重要！）】**
+    * **親しみ（50%）:** 「〜だよね」「〜ね」「〜だと思うよ」「〜じゃない？」「〜なの」「〜なのよ」
+    * **丁寧（50%）:** 「〜です」「〜ます」「〜ですよ」「〜ですよね」「〜ますよね」「〜ですね」「〜なんですよ」
+    * **※指示:** 文末は「親しみ語尾」と「丁寧語尾」を**半々くらいの割合**でランダムに使い分けること。どちらかに偏ってはいけない。
 
 * **【NG：絶対に使ってはいけない語尾】**
     * **禁止（子供っぽい）:** 「〜なんだ」「〜したんだ」「〜やるんだ」「〜るんだ」
