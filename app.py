@@ -424,10 +424,10 @@ def create_rag_chain(vector_store, llm_instance, sources):
     # Note: If passing all sources, maybe we don't need a filter? 
     # But it's safer to be explicit if user allows deselecting.
     
-    # Increase k to 30 (Balanced: More than 20/25, testing stability)
+    # Increase k to 20 (Balanced: More than 20/25, testing stability)
     retriever = vector_store.as_retriever(
         search_kwargs={
-            "k": 30,
+            "k": 20,
             "filter": search_filter
         }
     )
