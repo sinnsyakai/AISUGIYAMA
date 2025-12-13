@@ -428,7 +428,7 @@ def create_rag_chain(vector_store, llm_instance, sources):
     # k=25: Balance between search quality and stability
     retriever = vector_store.as_retriever(
         search_kwargs={
-            "k": 12,
+            "k": 20,
             "filter": search_filter
         }
     )
@@ -724,6 +724,27 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
 
                     # ★修正: 先頭の空行・空白を完全に削除 (regex)
                     full_response = re.sub(r'^[\s\n\r]+', '', full_response)
+
+                    # ★後処理フィルター: NG語尾をOK語尾に強制置換
+                    def fix_endings(text):
+                        # 「んだ。」パターンを「ね。」に置換
+                        text = re.sub(r'んだ。', 'ね。', text)
+                        text = re.sub(r'んだ！', 'ね！', text)
+                        text = re.sub(r'んだ\n', 'ね\n', text)
+                        text = re.sub(r'んだ$', 'ね', text)
+                        # 「だ。」（単独）を「なの。」に置換
+                        text = re.sub(r'([^なよ])(だ。)', r'\1なの。', text)
+                        text = re.sub(r'([^なよ])(だ\n)', r'\1なの\n', text)
+                        # 「である。」を「です。」に
+                        text = re.sub(r'である。', 'です。', text)
+                        text = re.sub(r'である\n', 'ですね\n', text)
+                        # 「わね。」「だわ。」「かしら。」を置換
+                        text = re.sub(r'わね。', 'ね。', text)
+                        text = re.sub(r'だわ。', 'なの。', text)
+                        text = re.sub(r'かしら。', 'かな？', text)
+                        return text
+                    
+                    full_response = fix_endings(full_response)
 
                     # 回答が完成したら一括表示 (Enable HTML for <br>)
                     response_container.markdown(full_response, unsafe_allow_html=True)
