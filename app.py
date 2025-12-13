@@ -789,4 +789,4 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
 if len(st.session_state.messages) > 0:
     # PC: 500px, スマホ: 600px 相当のスペーサー -> 1/5以下 (60px)へ変更
     st.markdown("<div style='height: 60px;'></div>", unsafe_allow_html=True)
-```
+
