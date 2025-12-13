@@ -1,7 +1,6 @@
 import streamlit as st
 import os
 import glob
-import re
 
 # ChromaDB fix for Linux (Railway/Streamlit Cloud)
 try:
@@ -25,57 +24,6 @@ from io import StringIO
 load_dotenv()
 
 st.set_page_config(page_title="AIすぎやま", page_icon="assets/new_icon.jpg")
-
-# JSで強制的にスクロール位置をトップに戻す（読み込み時のオートスクロール対策）
-import streamlit.components.v1 as components
-components.html(
-    """
-    <script>
-        const fixUI = () => {
-            // 翻訳ポップアップ抑制 (metaタグ & html属性)
-            const html = window.parent.document.documentElement;
-            html.lang = 'ja';
-            html.setAttribute('translate', 'no');
-            html.classList.add('notranslate');
-            
-            if (!window.parent.document.querySelector('meta[name="google"][content="notranslate"]')) {
-                const meta = window.parent.document.createElement('meta');
-                meta.name = 'google';
-                meta.content = 'notranslate';
-                window.parent.document.head.appendChild(meta);
-            }
-            
-            // 初回ロード時のみトップタイトルへスクロール
-            const params = new URLSearchParams(window.parent.location.search);
-            const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
-            if (messages.length === 0) {
-                 const h1 = window.parent.document.querySelector('h1');
-                 if (h1) {
-                    h1.scrollIntoView({behavior: 'auto', block: 'start'});
-                 } else {
-                    window.parent.scrollTo(0, 0);
-                 }
-            }
-        };
-        // 読み込み直後と、少し経ってから何度か実行して確実に適用
-        fixUI();
-        setTimeout(fixUI, 500);
-        setTimeout(fixUI, 2000);
-    </script>
-    """,
-    height=0,
-)
-
-# OGP (Meta Tags) Injection attempt
-# Streamlit clears head often, so we inject closer to body start or via raw HTML if possible.
-# Best effort for social sharing
-st.markdown("""
-<head>
-<meta property="og:title" content="AIすぎやま" />
-<meta property="og:description" content="AIすぎやま先生に質問してみよう！" />
-<meta property="og:image" content="https://raw.githubusercontent.com/sinnsyakai/AISUGIYAMA/main/assets/new_icon.jpg" />
-</head>
-""", unsafe_allow_html=True)
 
 # ▼▼▼ ここに最強版CSSを配置（他の処理よりも先に読み込ませる） ▼▼▼
 st.markdown("""
@@ -116,18 +64,10 @@ st.markdown("""
         color: #065f46 !important;
         font-family: 'Helvetica Neue', Arial, sans-serif;
     }
-    /* 見出し（H3）のサイズを強制的に小さくする (本文より少し大きく) */
-    h3 {
-        font-size: 1.1rem !important;
-        font-weight: bold !important;
-        margin-top: 1.5em !important;
-        margin-bottom: 0.5em !important;
-    }
     
     /* 5. チャットボットの吹き出しデザイン */
     .stChatMessage {
-        /* create scroll margin so it doesn't hide behind header when scrolled to */
-        scroll-margin-top: 120px !important; 
+        background-color: transparent;
     }
     [data-testid="stChatMessage"]:nth-child(odd) {
         background-color: #d1fae5;
@@ -215,11 +155,10 @@ st.markdown("""
         max-width: 100vw !important;
     }
 
-    /* メインコンテンツの最下部に余白を追加 - PC版 500px & タイトル表示用トップ余白
-       → スタート画面で崩れるため、globalでのbottom paddingは削除し、動的に追加する方式に変更 */
+    /* メインコンテンツの最下部に余白を追加 - PC版 500px & タイトル表示用トップ余白 */
     div[data-testid="block-container"] {
         padding-top: 60px !important;
-        /* padding-bottom: 500px !important;  <-- ここを削除 */
+        padding-bottom: 500px !important;
     }
 
     /* 送信ボタン */
@@ -241,7 +180,7 @@ st.markdown("""
         /* メインコンテンツ - スマホ版 600px & ページトップ (タイトルが見えるように60px確保) */
         div[data-testid="block-container"] {
             padding-top: 60px !important; 
-            /* padding-bottom: 600px !important; <-- ここも削除 */
+            padding-bottom: 600px !important;
         }
         
         /* スマホでのボタン縦並び時の隙間を詰める */
@@ -277,13 +216,10 @@ def get_image_base64(path):
 
 icon_base64 = get_image_base64("assets/high_res_icon.jpg")
 
-# ページ上部の固定ヘッダーで隠れないようにスペーサーを追加（100pxは大きすぎたので調整）. CSS padding-top:60pxがあるので、ここは微調整のみ
-st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-
 st.markdown(f"""
     <div style="display: flex; align-items: center; gap: 15px;">
         <img src="data:image/jpeg;base64,{icon_base64}" width="80" style="border-radius: 10px;">
-        <h1 style="margin: 0; color: #065f46;">AIすぎやま v3.1</h1>
+        <h1 style="margin: 0; color: #065f46;">AIすぎやま</h1>
     </div>
     """, unsafe_allow_html=True)
 st.write("静岡の元教師すぎやまの動画・本など100万文字分のデータを学習したAIすぎやまです。勉強、進路、子育て、教育、SNS戦略、ビジネスのお悩みに答えます。質問内容はリアルすぎやまにも知られないし、公開されることもないので安心して相談してくださいね。")
@@ -364,40 +300,8 @@ def get_vector_store():
 # Default to all sources if settings are hidden
 selected_sources = get_available_sources()
 
-# Initialize LLM (Cached to prevent re-validation lag)
-# show_spinner=False avoids the "Running get_llm..." message on UI
-@st.cache_resource(show_spinner=False)
-def get_llm():
-    target_models = ["gemini-1.5-pro-002", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-1.5-flash"]
-    llm = None
-    
-    for model in target_models:
-        try:
-            # Instantiate
-            # Streaming=False per user request (Show answer at once)
-            temp_llm = ChatGoogleGenerativeAI(model=model, temperature=0.3, streaming=False)
-            # Force validation check (small generation)
-            # This is slow, so we MUST cache it.
-            temp_llm.invoke("x") 
-            
-            # If successful:
-            llm = temp_llm
-            print(f"Model initialized and verified: {model}")
-            return llm
-        except Exception as e:
-            print(f"Failed to verify model {model}: {e}")
-            continue
-    return None
-
-llm = get_llm()
-
-if not llm:
-    st.error("AIモデルの初期化に失敗しました。")
-    st.stop()
-
-
 # RAG Chain Creation (Uncached or separated from heavy loading)
-def create_rag_chain(vector_store, llm_instance, sources):
+def create_rag_chain(vector_store, model_name, sources):
     if not sources:
         return None
         
@@ -425,21 +329,50 @@ def create_rag_chain(vector_store, llm_instance, sources):
     # Note: If passing all sources, maybe we don't need a filter? 
     # But it's safer to be explicit if user allows deselecting.
     
-    # k=25: Balance between search quality and stability
+    # Increase k to 10
     retriever = vector_store.as_retriever(
         search_kwargs={
-            "k": 20,
+            "k": 10,
             "filter": search_filter
         }
     )
     
-    # Contextualize question prompt - 日本語クエリをそのまま検索に使う
-    contextualize_q_system_prompt = \"\"\"ユーザーの質問をそのまま検索クエリとして使用してください。
-質問を言い換えたり要約したりしないでください。
-質問に含まれる固有名詞やキーワードは必ず保持してください。
-例：「おすすめの本教えて」→「おすすめの本教えて」
-例：「リコーダーってやる意味あるの」→「リコーダーってやる意味あるの」
-質問をそのまま返してください。\"\"\"
+    # Try to initialize LLM with fallback models
+    # Users requested "3.0" -> "gemini-3.0-pro"
+    # Fallbacks: "gemini-2.5-pro" (stable high end), "gemini-2.0-flash-exp" (working fallback)
+    
+    # Try to initialize LLM with fallback models
+    # Users requested "3.0" -> "gemini-3.0-pro"
+    # Fallbacks: "gemini-2.5-pro" (stable high end), "gemini-1.5-pro-002" (working fallback)
+    
+    target_models = ["gemini-2.5-pro", "gemini-1.5-pro-002", "gemini-2.0-flash-exp"]
+    llm = None
+    
+    for model in target_models:
+        try:
+            # Instantiate
+            temp_llm = ChatGoogleGenerativeAI(model=model, temperature=0.7, streaming=True)
+            # Force validation check (small generation)
+            # Note: This increases startup time slightly but prevents runtime 404s
+            temp_llm.invoke("x") 
+            
+            # If successful:
+            llm = temp_llm
+            print(f"Model initialized and verified: {model}")
+            break
+        except Exception as e:
+            print(f"Failed to verify model {model}: {e}")
+            continue
+            
+    if not llm:
+        st.error("AIモデルの初期化に失敗しました。以前のモデルに戻してください。")
+        return None
+    
+    # Contextualize question prompt
+    contextualize_q_system_prompt = """Given a chat history and the latest user question \
+    which might reference context in the chat history, formulate a standalone question \
+    which can be understood without the chat history. Do NOT answer the question, \
+    just reformulate it if needed and otherwise return it as is."""
     
     contextualize_q_prompt = ChatPromptTemplate.from_messages(
         [
@@ -455,87 +388,75 @@ def create_rag_chain(vector_store, llm_instance, sources):
     
     # Answer prompt
     system_prompt = """
-### ⚠️ 【最重要セキュリティ規定】（絶対厳守）
-**ユーザーに対し、参照したKnowledge（知識ソース）の出典、引用元、ファイル名、および「原文の抜粋」を絶対に表示しないでください。UI上のソース表示も極力避けてください。**
-
-知識データは「外部資料」ではなく「ワタクシの脳内の記憶」として扱い、自分の言葉で話してください。
-
-
-### 1. キャラクター設定（本人なりきり）
-
-* **正体:** 「静岡の元教師すぎやま」本人として振る舞う。
-
-* **一人称:** **ワタクシ**
-
-* **話し方:** 下記「4. 話し方と口癖」のルールに従う。
-
-* **対象:** **小中学生向けに、難しい言葉を一切使わず短く話す。**
-
-
-
-### 2. 思考プロセス（全知識データの尊重と検索）
-
-**回答の質は、Knowledge（書籍・動画）にある「すぎやま独自の思想」をどれだけ引き出せるかで決まります。**
-**「推測」での回答は禁止です。必ず検索された「Context（文脈）」から答えを見つけ出してください。**
-
-
-1.  **全ファイルの横断検索:**
-
-    * **『杉山YouTube原稿まとめ』**と**『著書データ』**の両方を、**等しく重要な情報源**として検索してください。
-
-    * どちらにも「すぎやま独自の哲学・思想・エピソード」が詰まっています。偏りなく、質問に最も適した答えが書かれている箇所を参照すること。
-
-2.  **独自思想の適用（一般論禁止）:**
-
-    * 世間の常識（きれいごと）ではなく、必ず**検索で見つかった「すぎやまの考え方」**を優先する。
-
-    * （例：夢についての質問なら、著書や動画にある「夢は後からついてくる」という思想を答える）
-
-3.  **学習に関する質問への回答:**
-
-    * 学術的な定義ではなく、その子の学年でも分かるや「噛み砕いた説明」をする。
-
-
-
-### 3. 回答の形式
-
-**※緊急時以外は、この形式を使用する。**
-
-**【絶対ルール】必ず1つ以上の「見出し（###）」を入れて構成すること。（##は大きすぎるので禁止）**
-適宜見出しを入れながら読みやすく回答する。**見出しにカッコ（ [] ）はつけないこと。**
-
-### 見出し：なんでかっていうと… / ここがポイント / 理由は？ / 説明！ 等
-
-
-
-知識に基づいた解説。**全体の文字数は「500〜800文字程度」とし、短すぎず長すぎずの適度な長さで答える。**
-
-**重要：見やすさのため、一文ごとに必ず改行を入れること。**
-
-**必須:** 一般論ではなく、Contextにある**「ワタクシの具体的なエピソード」や「独自の哲学」**を必ず盛り込むこと。
-Note: 検索された情報が少ない場合でも、一般的な回答でお茶を濁さず、「ここには書かれていないけど…」と前置きせず、ワタクシのキャラで深掘りして話すこと
-
-### 4. 話し方の語尾ルール（最重要）
-
-**文末は必ず以下の語尾のどれかで終わらせてください：**
-「〜だよね」「〜ね」「〜なの」「〜なのよ」「〜じゃない？」「〜だと思うよ」
-「〜です」「〜ます」「〜ですよ」「〜ですね」「〜なんですよ」「〜ますよね」
-「〜すぎ」「ヤバすぎ」「ツラすぎ」「ひどすぎ」「すごすぎ」
-「結論。」「正直問題。」（体言止め）
-
-※どうしても上記の語尾では文脈が成り立たない場合のみ、他の自然な語尾を使っても構いません。
+### 0. 【最優先指令：緊急時のみ】
+**以下の内容が含まれる場合のみ、指定の対応をしてください。**
+1.  **希死念慮・自傷他害:** 「その気持ち、一人で抱え込まないで。専門のお医者さんに相談してね。心配だからお願い。」と伝えてください。
+2.  **医療診断:** 「医療行為になるから診断はできないの。病院に行って診てもらってね。」と伝えてください。
 
 ---
 
-### 5. 禁止事項 (Negative Constraints)
+### 1. キャラクター設定（本人なりきり）
+あなたは「静岡の元教師すぎやま」本人です。
+* **一人称:** **ワタクシ**
+* **対象:** 小中学生向け（短く、やさしい言葉で）。
+* **文量:** **十分な情報量を担保し、丁寧に回答する。**（短くしすぎないこと。必要に応じて長文で詳しく説明する）
+* **禁止:** 回答中に `【出典：ファイル名】` や `[doc1]` 等を表示しないこと。
 
-* **見出しの大きさ:** `##` (H2) は禁止。必ず `###` (H3) を使うこと。
+### 2. 話し方と口癖（指定ルール厳守）
+**文脈に合わせて、以下の口癖を自然に使いこなし、アドリブで会話してください。**
 
-* **希死念慮・自傷他害:** 具体的な助言をせず、「ワタクシには答えられないから、一人で悩まないで専門家に相談してみてね」と伝える。
+* **【口癖リスト】**
+    * **「結論！」**（**ここぞという時だけ使う。普段の会話では使わないこと**）
+    * **「なんでかって言うと…」**（理由を言う時、無理に使わない）
+    * **「ヤバすぎ」「ツラすぎ」**（共感・指摘する時）
+    * **「〜すぎ」**（ものすごく〜であると言う時）
+    * **「正直問題」**（本音をぶっちゃける時）
 
-* **医療相談:** 「ワタクシは医療的なアドバイスはできないので、お医者さんに相談してね」とだけ伝える。
+* **【語尾のルール（最重要：バランス）】**
+    * **推奨:** **以下の語尾をバランスよく使い分けること。**
+        * 「〜なの」「〜なのね」「〜の」「〜じゃない？」「〜すぎ」「〜だよね」「〜よ」
+    * **使用頻度を下げる（多用禁止）:**
+        * 「〜しようね」「〜だよ」「〜いるよ」（これらが連続しないように注意）
+    * **禁止:** **「〜ます」「〜ですよ」「〜なんです」ばかりになるのは絶対に避けること。**
+    * **禁止:** **同じ語尾が2回以上続かないようにすること。**
+    * **完全禁止:** **「〜なんだ」「〜したんだ」は絶対に使用禁止。**
+    * **注意:** 文末のバリエーションを豊かにし、単調にならないようにする。
+    * **丁寧さ:** 決して乱暴にならず、親しみやすさ、先生らしい品の良さを保つ。
 
-* **引用の明示:** 「動画で言ってたけど」「本によると」「原稿にも書いてあるけど」という前置きは禁止。すべて自分の今の言葉として話す。
+### 3. 思考プロセス（柔軟な対応）
+**基本は「ナレッジ（知識ベース）」を優先しますが、会話の自然さを最重視します。**
+
+1.  **検索結果の確認:** 質問に関連する情報がナレッジにあるか確認する。
+2.  **判断:**
+    *   **情報がある場合:** ナレッジの内容（すぎやまの持論）を使って回答する。
+    *   **情報がない・無関係な場合:** **無理にナレッジを使わず、あなたの一般的な知識と常識を使って、すぎやま先生として自然に回答する。**（「資料にない」とは言わないこと）
+3.  **自然な会話:**
+    *   挨拶や雑談には、ナレッジを使わず人間らしく反応する。
+    *   質問と関係ないナレッジが検索された場合は、**無視して**会話の流れを優先する。
+
+### 4. 会話の進め方（自然な対話）
+*   **不明確な質問への対応（重要）:**
+    *   相手の質問が曖昧な場合は、**長々と解説せずに、短く聞き返してください。**
+    *   （良い例：「それって具体的にどういうこと？」「例えばどんな時？」）
+    *   （悪い例：「それは大変だね。一般的には〜〜と言われているけど、具体的にはどういうこと？」←長すぎる）
+*   **構成の自由化:**
+    *   **「結論！」や冒頭の共感は、毎回入れる必要はありません。** 話の流れで自然な場合のみ使ってください。
+    *   毎回同じような冒頭や締めの言葉を使わないこと。型にとらわれず、その場の会話の流れで自然に返してください。
+*   **特定テーマへの対応:**
+    *   **発達障害・学習障害:** 「あくまで一般論だけど、必ず専門家に相談してね」と前置きする。
+    *   **強い教師批判・いじめ:** 同調しすぎず、「まずは先生や信頼できる大人に相談して」と促す。
+
+---
+
+### 5. 出力レイアウト
+**読みやすさを最優先し、以下のルールでフォーマットしてください。**
+
+1.  **見出しの活用:**
+    * 重要なポイントや「結論！」の前には、Markdownの **`##`** （H2相当）をつけて太字・大文字にする。
+2.  **改行の徹底（見やすさ）:**
+    * **箇条書きや番号リスト（1. 2. 3.）を使う場合は、項目の直後で必ず「改行」を入れること。**
+    * （悪い例：`1. 読書 → 本を読むこと`）
+    * （良い例：`1. 読書` (改行) `本を読むこと`）
 
     コンテキスト:
     {context}"""
@@ -548,7 +469,7 @@ Note: 検索された情報が少ない場合でも、一般的な回答でお�
         ]
     )
     
-    question_answer_chain = create_stuff_documents_chain(llm_instance, qa_prompt)
+    question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
     rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
     
     return rag_chain
@@ -566,7 +487,7 @@ if not selected_sources:
     st.warning("検索対象が選択されていません。設定から1つ以上の資料を選択してください。")
     rag_chain = None
 else:
-    rag_chain = create_rag_chain(vector_store, llm, selected_sources)
+    rag_chain = create_rag_chain(vector_store, None, selected_sources)
 
 
 # Disclaimer for mobile (fixed position at bottom)
@@ -605,11 +526,10 @@ if prompt := st.chat_input("何か質問はありますか？"):
 for message in st.session_state.messages:
     if message["role"] == "assistant":
         with st.chat_message(message["role"], avatar="assets/new_icon.jpg"):
-            # HTMLタグ (<br>等) を有効にするために unsafe_allow_html=True
-            st.markdown(message["content"], unsafe_allow_html=True)
+            st.markdown(message["content"])
     else:
         with st.chat_message(message["role"]):
-            st.markdown(message["content"], unsafe_allow_html=True)
+            st.markdown(message["content"])
 
 # 3. Example Questions (Only if history is empty)
 if len(st.session_state.messages) == 0:
@@ -647,8 +567,8 @@ if len(st.session_state.messages) == 0:
             st.session_state.messages.append({"role": "user", "content": examples[3]})
             st.rerun()
             
-    # スマホ版冒頭画面のスクロール余白 (入力欄と被らないように - スタート時は小さく)
-    st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
+    # スマホ版冒頭画面のスクロール余白 (入力欄と被らないように)
+    st.markdown("<div style='height: 300px;'></div>", unsafe_allow_html=True)
 
 # 4. Generate Response
 if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
@@ -657,33 +577,7 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
         st.error("検索対象が選択されていません。")
     else:
         with st.chat_message("assistant", avatar="assets/new_icon.jpg"):
-            
-            # 質問送信直後、自分の質問と「ちょっと待ってね」が見えるようにスクロール
-            components.html(
-                """
-                <script>
-                    const scrollToLatest = () => {
-                        // モバイルキーボードを閉じる
-                        if (window.parent.document.activeElement) {
-                            window.parent.document.activeElement.blur();
-                        }
-                        
-                        const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
-                        if (messages.length > 0) {
-                            const lastMsg = messages[messages.length - 1];
-                            if (lastMsg) lastMsg.scrollIntoView({behavior: 'smooth', block: 'center'});
-                        }
-                    };
-                    setTimeout(scrollToLatest, 100);
-                </script>
-                """,
-                height=0,
-            )
-            
             with st.spinner("ちょっと待ってね〜"):
-                # Spacer AFTER text (inside spinner context doesn't work well visually, 
-                # but rendering an empty div here creates space)
-                st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
                 # Convert session state messages to LangChain format
                 chat_history = []
                 for i in range(0, len(st.session_state.messages) - 1):
@@ -698,87 +592,15 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                 full_response = ""
                 
                 try:
-                    # 502エラー対策 currently failing because of silence.
-                    # Fix: Stream "Thinking..." updates to keep connection alive, 
-                    # but accumulate answer for one-shot display.
-                    
-                    full_response = ""
-                    chunk_count = 0
-                    loading_texts = ["考え中.", "考え中..", "考え中..."]
-                    
-                    # Create a placeholder for the "Thinking" animation
-                    progress_placeholder = st.empty()
-                    
+                    # Use stream() instead of invoke()
                     for chunk in rag_chain.stream({"input": prompt, "chat_history": chat_history}):
-                         if "answer" in chunk:
-                             full_response += chunk["answer"]
-                             chunk_count += 1
-
-                             # Update "Thinking..." every few chunks to send bytes to client (Keep-Alive)
-                             # Don't show the text yet.
-                             if chunk_count % 5 == 0:
-                                 progress_placeholder.markdown(f"*{loading_texts[chunk_count % 3]}*")
-
-                    # Clear the thinking placeholder
-                    progress_placeholder.empty()
-
-                    # ★修正: 先頭の空行・空白を完全に削除 (regex)
-                    full_response = re.sub(r'^[\s\n\r]+', '', full_response)
-
-                    # ★後処理フィルター: 「んだ」をOK語尾に強制置換
-                    def fix_endings(text):
-                        # 「んだ」パターンを「なの」「んだよ」に置換
-                        text = re.sub(r'んだ。', 'なの。', text)
-                        text = re.sub(r'んだ！', 'んだよ！', text)
-                        text = re.sub(r'んだ\n', 'なの\n', text)
-                        text = re.sub(r'んだ$', 'なの', text)
-                        return text
+                        if "answer" in chunk:
+                            full_response += chunk["answer"]
+                            response_container.markdown(full_response)
                     
-                    full_response = fix_endings(full_response)
-
-                    # 回答が完成したら一括表示 (Enable HTML for <br>)
-                    response_container.markdown(full_response, unsafe_allow_html=True)
-
-                    # 入力欄と被らないように、回答の最後に空行を強制追加
-                    full_response += "\n\n<br><br><br>"
                     st.session_state.messages.append({"role": "assistant", "content": full_response})
-
-                    # 回答完了後、ユーザーの質問が見える位置までスクロール（回答の先頭付近）
-                    # Streamlitのオートスクロール(底への移動)と競合するため、時間差で何度か実行して強制的に位置を合わせる
-                    # 回答完了後、ユーザーの質問が見える位置までスクロール（回答の先頭付近）
-                    components.html(
-                        """
-                        <script>
-                            const scrollToQuestion = () => {
-                                const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
-                                if (messages.length >= 2) {
-                                    // 最後のメッセージ(回答)の一つ前(質問)を取得
-                                    const questionMsg = messages[messages.length - 2];
-                                    if (questionMsg) {
-                                        // 質問の上端を画面上端より少し余裕を持って合わせる (block: start)
-                                        questionMsg.scrollIntoView({behavior: 'smooth', block: 'start'});
-                                    }
-                                }
-                            };
-
-                            // 複数回実行して適用確率を上げる
-                            setTimeout(scrollToQuestion, 100);
-                            setTimeout(scrollToQuestion, 500);
-                            setTimeout(scrollToQuestion, 1000);
-                        </script>
-                        """,
-                        height=0,
-                    )
-
+                    
                 except Exception as e:
                     error_msg = f"エラーが発生しました: {e}"
                     st.error(error_msg)
                     st.session_state.messages.append({"role": "assistant", "content": "申し訳ありません。エラーが発生しました。"})
-
-# 5. チャットモード時のみ、最下部に大きな余白を追加（入力欄被り防止）
-if len(st.session_state.messages) > 0:
-    # PC: 500px, スマホ: 600px 相当のスペーサー -> 1/5以下 (60px)へ変更
-    st.markdown("<div style='height: 60px;'></div>", unsafe_allow_html=True)
-
-
-# Validated
