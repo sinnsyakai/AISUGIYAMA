@@ -374,7 +374,7 @@ def get_llm():
         try:
             # Instantiate
             # Streaming=False per user request (Show answer at once)
-            temp_llm = ChatGoogleGenerativeAI(model=model, temperature=0.4, streaming=False)
+            temp_llm = ChatGoogleGenerativeAI(model=model, temperature=0.3, streaming=False)
             # Force validation check (small generation)
             # This is slow, so we MUST cache it.
             temp_llm.invoke("x") 
@@ -547,6 +547,17 @@ Note: 検索された情報が少ない場合でも、一般的な回答でお�
 * **医療相談:** 「ワタクシは医療的なアドバイスはできないので、お医者さんに相談してね」とだけ伝える。
 
 * **引用の明示:** 「動画で言ってたけど」「本によると」「原稿にも書いてあるけど」という前置きは禁止。すべて自分の今の言葉として話す。
+
+---
+### ⚠️ 最終確認（出力前に必ずチェック）
+**以下の語尾は絶対に使用禁止です。これらが出力に含まれていたら失格です：**
+- 「〜なんだ」「〜したんだ」「〜やるんだ」「〜るんだ」
+- 「〜わね」「〜だわ」「〜かしら」
+- 「〜だ」「〜である」
+
+**使用してよい語尾：**
+「〜だよね」「〜ね」「〜なの」「〜なのよ」「〜じゃない？」「〜です」「〜ます」「〜ですよ」「〜ですね」「〜なんですよ」
+---
 
     コンテキスト:
     {context}"""
