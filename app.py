@@ -427,7 +427,7 @@ def create_rag_chain(vector_store, llm_instance, sources):
     # k=25: Balance between search quality and stability
     retriever = vector_store.as_retriever(
         search_kwargs={
-            "k": 20,
+            "k": 12,
             "filter": search_filter
         }
     )
