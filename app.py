@@ -703,16 +703,30 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                     # ★修正: 先頭の空行・空白を完全に削除 (regex)
                     full_response = re.sub(r'^[\s\n\r]+', '', full_response)
 
-                    # ★後処理フィルター: 「んだ」をOK語尾に強制置換
-                    def fix_endings(text):
-                        # 「んだ」パターンを「なの」「んだよ」に置換
+
+                    # ★後処理フィルター: 改行と語尾の修正
+                    def fix_response(text):
+                        # 1. 「んだ」パターンを「なの」「んだよ」に置換
                         text = re.sub(r'んだ。', 'なの。', text)
                         text = re.sub(r'んだ！', 'んだよ！', text)
                         text = re.sub(r'んだ\n', 'なの\n', text)
                         text = re.sub(r'んだ$', 'なの', text)
+                        
+                        # 2. 句点（。）の後に改行を強制追加
+                        # ただし、すでに改行がある場合は追加しない
+                        # 「。」の後に改行がない場合、改行を追加
+                        text = re.sub(r'。(?!\n)', '。\n', text)
+                        
+                        # 3. 「！」「？」の後にも改行を追加（すでにない場合）
+                        text = re.sub(r'！(?!\n)', '！\n', text)
+                        text = re.sub(r'？(?!\n)', '？\n', text)
+                        
+                        # 4. 連続する改行を2つまでに制限
+                        text = re.sub(r'\n{3,}', '\n\n', text)
+                        
                         return text
                     
-                    full_response = fix_endings(full_response)
+                    full_response = fix_response(full_response)
 
                     # 回答が完成したら一括表示 (Enable HTML for <br>)
                     response_container.markdown(full_response, unsafe_allow_html=True)
