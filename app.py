@@ -424,10 +424,10 @@ def create_rag_chain(vector_store, llm_instance, sources):
     # Note: If passing all sources, maybe we don't need a filter? 
     # But it's safer to be explicit if user allows deselecting.
     
-    # Increase k to 15 (Reduced from 20 to prevent 502 errors)
+    # k=25: Balance between search quality and stability
     retriever = vector_store.as_retriever(
         search_kwargs={
-            "k": 15,
+            "k": 25,
             "filter": search_filter
         }
     )
@@ -538,12 +538,6 @@ Note: 検索された情報が少ない場合でも、一般的な回答でお�
     * 「正直問題」（本音）
     * 「〜〜スギ」（ものすごく〜〜である、という時）
 
-* **【絶対禁止】**
-    * **「〜なんだ」「〜したんだ」**（子供っぽいのでNG）
-
-
-
----
 
 
 
