@@ -433,11 +433,12 @@ def create_rag_chain(vector_store, llm_instance, sources):
     )
     
     # Contextualize question prompt
-    # Revert to standard "Reformulate" prompt to avoid narrowing search too much
+    # Preserve key intent (especially properly nouns) to ensure profile searches work.
     contextualize_q_system_prompt = """Given a chat history and the latest user question \
     which might reference context in the chat history, formulate a standalone question \
-    which can be understood without the chat history. Do NOT answer the question, \
-    just reformulate it if needed and otherwise return it as is."""
+    which can be understood without the chat history. \
+    If the question is about "Who is Sugiyama?", ensure the name "Sugiyama" is preserved. \
+    Do NOT answer the question, just reformulate it if needed and otherwise return it as is."""
     
     contextualize_q_prompt = ChatPromptTemplate.from_messages(
         [
@@ -509,7 +510,7 @@ def create_rag_chain(vector_store, llm_instance, sources):
 
 
 
-知識に基づいた解説。**短く終わらせない。1つの見出しにつき、今の倍の文字数（200〜300文字以上）を使って、詳しく丁寧に説明する。**
+知識に基づいた解説。**だらだらと長くしない。全体の文字数を「500文字程度」に収めること。**
 
 **重要：見やすさのため、一文ごとに必ず改行を入れること。**
 
@@ -524,8 +525,8 @@ Note: 検索された情報が少ない場合でも、一般的な回答でお�
     * **丁寧（サブ）:** 「〜です」「〜ます」「〜ですね」「〜なんですよ」（3文に1回は必ず使う）
 
 * **【NG：絶対に使ってはいけない語尾】**
-    * **禁止（子供っぽい）:** 「〜なんだ」「〜したんだ」「〜やるんだ」
-    * **禁止（女性的・おばさん言葉）:** 「〜わね」「〜だわ」「〜かしら」「〜のよ」
+    * **禁止（子供っぽい）:** 「〜なんだ」「〜したんだ」「〜やるんだ」「〜るんだ」
+    * **禁止（おばさん言葉）:** 「〜わね」「〜だわ」「〜かしら」「〜のよ」
     * **禁止（偉そう）:** 「〜だ」「〜である」
 
 * **【口癖】（自然な文脈で）**
@@ -733,31 +734,25 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                          if "answer" in chunk:
                              full_response += chunk["answer"]
                              chunk_count += 1
-                             
-                             # Update "Thinking..." every few chunks to send bytes to client (Keep-Alive)
-                    for chunk in rag_chain.stream({"input": prompt, "chat_history": chat_history}):
-                         if "answer" in chunk:
-                             full_response += chunk["answer"]
-                             chunk_count += 1
-                             
+
                              # Update "Thinking..." every few chunks to send bytes to client (Keep-Alive)
                              # Don't show the text yet.
                              if chunk_count % 5 == 0:
                                  progress_placeholder.markdown(f"*{loading_texts[chunk_count % 3]}*")
-                    
+
                     # Clear the thinking placeholder
                     progress_placeholder.empty()
-                    
+
                     # ★修正: 先頭の空行を削除 (strip)
                     full_response = full_response.strip()
-                    
+
                     # 回答が完成したら一括表示 (Enable HTML for <br>)
                     response_container.markdown(full_response, unsafe_allow_html=True)
-                    
+
                     # 入力欄と被らないように、回答の最後に空行を強制追加
                     full_response += "\n\n<br><br><br>"
                     st.session_state.messages.append({"role": "assistant", "content": full_response})
-                    
+
                     # 回答完了後、ユーザーの質問が見える位置までスクロール（回答の先頭付近）
                     # Streamlitのオートスクロール(底への移動)と競合するため、時間差で何度か実行して強制的に位置を合わせる
                     # 回答完了後、ユーザーの質問が見える位置までスクロール（回答の先頭付近）
@@ -775,7 +770,7 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                                     }
                                 }
                             };
-                            
+
                             // 複数回実行して適用確率を上げる
                             setTimeout(scrollToQuestion, 100);
                             setTimeout(scrollToQuestion, 500);
@@ -784,7 +779,7 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                         """,
                         height=0,
                     )
-                    
+
                 except Exception as e:
                     error_msg = f"エラーが発生しました: {e}"
                     st.error(error_msg)
@@ -794,3 +789,4 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
 if len(st.session_state.messages) > 0:
     # PC: 500px, スマホ: 600px 相当のスペーサー -> 1/5以下 (60px)へ変更
     st.markdown("<div style='height: 60px;'></div>", unsafe_allow_html=True)
+```
