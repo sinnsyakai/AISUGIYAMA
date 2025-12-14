@@ -558,11 +558,30 @@ def create_rag_chain(vector_store, llm_instance, sources):
             question = inputs.get("input", "")
             chat_history = inputs.get("chat_history", [])
             
+            # 【禁忌質問チェック】LLMを呼ぶ前にコード側で検出
+            import re
+            forbidden_patterns = [
+                # 自殺・自傷
+                '自殺', '死にたい', '死のう', '死ぬ', 'リストカット', 'リスカ', 'オーバードーズ', 'OD',
+                '首吊り', '飛び降り', '練炭', '薬を大量',
+                # 犯罪
+                '殺し方', '殺す方法', '爆弾の作り方', '毒の作り方', '犯罪', '違法',
+                # 過激な教師批判
+                'クソ教師', '糞教師', '教師死ね', '先生殺',
+                # 病気（性や成長以外）
+                '癌', 'がん', '糖尿病', '心臓病', '脳梗塞', 'うつ病', '統合失調',
+            ]
+            
+            question_lower = question.lower()
+            for pattern in forbidden_patterns:
+                if pattern in question or pattern in question_lower:
+                    yield {"answer": "ごめんね、そういう質問には回答できないの。身近な大人や専門家に相談してね。"}
+                    return
+            
             # デバッグモード: False = 通常モード（LLM回答生成）
             DEBUG_MODE = False
             
             # Step 1: 日本語キーワード抽出 + 意図拡張
-            import re
             
             # 別名辞書：同一人物/概念の別名を正規化
             aliases = {
@@ -797,26 +816,33 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
     else:
         with st.chat_message("assistant", avatar="assets/new_icon.jpg"):
             
-            # 質問送信直後、自分の質問が見えるようにスクロール（最初から質問の位置へ）
+            # 質問送信直後、自分の質問が見えるようにスクロール
+            # Streamlitの自動スクロールを上書きするため繰り返し実行
             components.html(
                 """
                 <script>
-                    const scrollToQuestion = () => {
+                    (function() {
                         // モバイルキーボードを閉じる
                         if (window.parent.document.activeElement) {
                             window.parent.document.activeElement.blur();
                         }
                         
-                        const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
-                        if (messages.length >= 2) {
-                            const questionMsg = messages[messages.length - 2];
-                            // instant で即座にスクロール（下に行ってから戻らない）
-                            if (questionMsg) questionMsg.scrollIntoView({behavior: 'instant', block: 'start'});
+                        const scrollToQuestion = () => {
+                            const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
+                            if (messages.length >= 2) {
+                                const questionMsg = messages[messages.length - 2];
+                                if (questionMsg) {
+                                    questionMsg.scrollIntoView({behavior: 'auto', block: 'start'});
+                                }
+                            }
+                        };
+                        
+                        // Streamlitの自動スクロールを上書きするため何度も実行
+                        scrollToQuestion();
+                        for (let i = 1; i <= 20; i++) {
+                            setTimeout(scrollToQuestion, i * 100);
                         }
-                    };
-                    // 即座に実行
-                    scrollToQuestion();
-                    setTimeout(scrollToQuestion, 50);
+                    })();
                 </script>
                 """,
                 height=0,
@@ -907,29 +933,28 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                     full_response += "\n\n<br><br><br>"
                     st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-                    # 回答完了後、ユーザーの質問が見える位置までスクロール（回答の先頭付近）
-                    # Streamlitのオートスクロール(底への移動)と競合するため、時間差で何度か実行して強制的に位置を合わせる
-                    # 回答完了後、ユーザーの質問が見える位置までスクロール（回答の先頭付近）
+                    # 回答完了後、ユーザーの質問が見える位置までスクロール
+                    # Streamlitのオートスクロールを上書きするため繰り返し実行
                     components.html(
                         """
                         <script>
-                            const scrollToQuestion = () => {
-                                const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
-                                if (messages.length >= 2) {
-                                    const questionMsg = messages[messages.length - 2];
-                                    if (questionMsg) {
-                                        // behavior: 'instant' で即座にスクロール（smoothだと遅れて下に行ってから戻る）
-                                        questionMsg.scrollIntoView({behavior: 'instant', block: 'start'});
+                            (function() {
+                                const scrollToQuestion = () => {
+                                    const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
+                                    if (messages.length >= 2) {
+                                        const questionMsg = messages[messages.length - 2];
+                                        if (questionMsg) {
+                                            questionMsg.scrollIntoView({behavior: 'auto', block: 'start'});
+                                        }
                                     }
-                                }
-                            };
+                                };
 
-                            // 即座に実行（Streamlitの自動スクロールより先に）
-                            scrollToQuestion();
-                            // 念のため複数回実行
-                            setTimeout(scrollToQuestion, 50);
-                            setTimeout(scrollToQuestion, 200);
-                            setTimeout(scrollToQuestion, 500);
+                                // Streamlitの自動スクロールを上書きするため何度も実行
+                                scrollToQuestion();
+                                for (let i = 1; i <= 30; i++) {
+                                    setTimeout(scrollToQuestion, i * 100);
+                                }
+                            })();
                         </script>
                         """,
                         height=0,
