@@ -509,6 +509,9 @@ def create_rag_chain(vector_store, llm_instance, sources):
             question = inputs.get("input", "")
             chat_history = inputs.get("chat_history", [])
             
+            # デバッグモード: 検索結果をそのまま表示
+            DEBUG_MODE = True  # 後でFalseに戻す
+            
             # Step 1: 質問の意図を理解し、最適な検索クエリを生成
             query_input = self.query_prompt.format(question=question)
             query_response = self.llm.invoke(query_input)
@@ -537,6 +540,24 @@ def create_rag_chain(vector_store, llm_instance, sources):
             
             # 最大10件に制限
             all_docs = all_docs[:10]
+            
+            if DEBUG_MODE:
+                # デバッグ: 検索結果をそのまま表示
+                debug_output = f"### 🔍 デバッグモード\n\n"
+                debug_output += f"**検索クエリ（変換後）:** {search_query}\n\n"
+                debug_output += f"**元の質問:** {question}\n\n"
+                debug_output += f"**検索結果数:** 変換クエリ={len(docs_transformed)}, 元質問={len(docs_original)}, 統合後={len(all_docs)}\n\n"
+                debug_output += "---\n\n"
+                
+                for i, doc in enumerate(all_docs[:5]):  # 最初の5件を表示
+                    source = doc.metadata.get('source', 'N/A')
+                    content_preview = doc.page_content[:300].replace('\n', ' ')
+                    debug_output += f"**結果 {i+1}:** ({source})\n\n"
+                    debug_output += f"{content_preview}...\n\n"
+                    debug_output += "---\n\n"
+                
+                yield {"answer": debug_output}
+                return
             
             context = "\n\n---\n\n".join([doc.page_content for doc in all_docs])
             
