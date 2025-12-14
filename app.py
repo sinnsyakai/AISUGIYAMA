@@ -498,6 +498,11 @@ def create_rag_chain(vector_store, llm_instance, sources):
 
     # カスタム RAG 関数（ハイブリッド検索対応）
     class CustomRAGChain:
+        # クラス変数: BM25インデックスをキャッシュ
+        _bm25_cache = None
+        _docs_cache = None
+        _meta_cache = None
+        
         def __init__(self, retriever, llm, query_prompt, answer_prompt, vector_store):
             self.retriever = retriever
             self.llm = llm
@@ -568,37 +573,39 @@ def create_rag_chain(vector_store, llm_instance, sources):
             # 日本語文字を1文字ずつ分割（簡易トークナイザー）
             query_tokens = list(search_query)
             
-            # Step 2: BM25検索 - 全ドキュメントからキーワードで検索
+            # Step 2: BM25検索 - キャッシュを使用
             all_docs = []
             
             try:
                 from rank_bm25 import BM25Okapi
                 from langchain_core.documents import Document
                 
-                # ChromaDBから全ドキュメントを取得
-                collection = self.vector_store._collection
-                all_data = collection.get(include=["documents", "metadatas"])
+                # キャッシュが空なら初期化（1回だけ実行）
+                if CustomRAGChain._bm25_cache is None:
+                    collection = self.vector_store._collection
+                    all_data = collection.get(include=["documents", "metadatas"])
+                    
+                    if all_data and all_data.get('documents'):
+                        CustomRAGChain._docs_cache = all_data['documents']
+                        CustomRAGChain._meta_cache = all_data.get('metadatas', [{}] * len(CustomRAGChain._docs_cache))
+                        
+                        # 各ドキュメントをトークン化（文字単位）
+                        tokenized_docs = [list(doc) for doc in CustomRAGChain._docs_cache if doc]
+                        
+                        # BM25インデックスを構築
+                        CustomRAGChain._bm25_cache = BM25Okapi(tokenized_docs)
                 
-                if all_data and all_data.get('documents'):
-                    docs_list = all_data['documents']
-                    meta_list = all_data.get('metadatas', [{}] * len(docs_list))
-                    
-                    # 各ドキュメントをトークン化（文字単位）
-                    tokenized_docs = [list(doc) for doc in docs_list if doc]
-                    
-                    # BM25インデックスを構築
-                    bm25 = BM25Okapi(tokenized_docs)
-                    
-                    # 検索実行
-                    scores = bm25.get_scores(query_tokens)
+                # キャッシュを使用して検索
+                if CustomRAGChain._bm25_cache is not None:
+                    scores = CustomRAGChain._bm25_cache.get_scores(query_tokens)
                     
                     # スコアでソートして上位10件を取得
                     top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:10]
                     
                     for idx in top_indices:
-                        if scores[idx] > 0:  # スコアが0より大きいもののみ
-                            content = docs_list[idx]
-                            metadata = meta_list[idx] if idx < len(meta_list) else {}
+                        if scores[idx] > 0:
+                            content = CustomRAGChain._docs_cache[idx]
+                            metadata = CustomRAGChain._meta_cache[idx] if idx < len(CustomRAGChain._meta_cache) else {}
                             all_docs.append(Document(page_content=content, metadata=metadata or {}))
             except Exception as e:
                 print(f"BM25 search error: {e}")
