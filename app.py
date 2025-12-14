@@ -509,11 +509,25 @@ def create_rag_chain(vector_store, llm_instance, sources):
             question = inputs.get("input", "")
             chat_history = inputs.get("chat_history", [])
             
-            # デバッグモード: 検索結果をそのまま表示
-            DEBUG_MODE = True  # 後でFalseに戻す
+            # デバッグモード: False = 通常モード（LLM回答生成）
+            DEBUG_MODE = False
             
             # Step 1: 日本語キーワード抽出 + 意図拡張
             import re
+            
+            # 別名辞書：同一人物/概念の別名を正規化
+            aliases = {
+                '杉山': 'すぎやま',
+                '杉山先生': 'すぎやま',
+                'すぎやま先生': 'すぎやま',
+                '静岡の元教師すぎやま': 'すぎやま',
+                '静岡の元教師': 'すぎやま',
+            }
+            
+            # 別名を正規化
+            normalized_question = question
+            for alias, canonical in aliases.items():
+                normalized_question = normalized_question.replace(alias, canonical)
             
             # 意図パターン辞書：質問パターン → 追加キーワード
             intent_expansions = {
@@ -529,7 +543,7 @@ def create_rag_chain(vector_store, llm_instance, sources):
             
             # まず助詞・接続詞パターンで分割
             split_patterns = r'って|っ て|なの|ですか|とは|について|どう|どんな|やる|ある|する|いる|なる'
-            segments = re.split(split_patterns, question)
+            segments = re.split(split_patterns, normalized_question)
             
             # 各セグメントからキーワードを抽出
             keywords = []
@@ -541,7 +555,7 @@ def create_rag_chain(vector_store, llm_instance, sources):
             
             # 意図拡張：質問に特定パターンがあれば関連キーワードを追加
             for pattern, expansions in intent_expansions.items():
-                if pattern in question:
+                if pattern in normalized_question:
                     keywords.extend(expansions)
                     break  # 最初にマッチしたパターンのみ適用
             
