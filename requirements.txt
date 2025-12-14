@@ -11,3 +11,4 @@ docx2txt
 jq
 pandas
 pysqlite3-binary
+rank-bm25

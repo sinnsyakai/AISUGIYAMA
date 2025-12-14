@@ -512,37 +512,46 @@ def create_rag_chain(vector_store, llm_instance, sources):
             # デバッグモード: 検索結果をそのまま表示
             DEBUG_MODE = True  # 後でFalseに戻す
             
-            # Step 1: 正規表現でキーワードを抽出（ーを含む）
+            # Step 1: 質問をトークン化
             import re
-            keywords = re.findall(r'[ぁ-んァ-ンー一-龥a-zA-Z]+', question)
-            stop_words = {'って', 'やる', 'ある', 'する', 'いる', 'なる', 'できる', 'ない', 
-                         'という', 'について', 'どう', 'なに', 'なん', 'どんな', 'ですか',
-                         'ください', 'ほしい', '教え', '教えて', 'の', 'は', 'が', 'を', 'に',
-                         '意味', 'なの', 'よね', 'だよ', 'あるの', 'ってやる', 'やる意味'}
-            keywords = [k for k in keywords if len(k) >= 2 and k not in stop_words]
+            # 日本語文字を1文字ずつ分割（簡易トークナイザー）
+            query_tokens = list(question)
             
-            # Step 2: ベクトル検索でシンプルに取得
+            # Step 2: BM25検索 - 全ドキュメントからキーワードで検索
             all_docs = []
-            keyword_matched_docs = []
             
             try:
-                # ベクトル検索（k=20に削減）
-                search_results = self.vector_store.similarity_search(question, k=20)
+                from rank_bm25 import BM25Okapi
+                from langchain_core.documents import Document
                 
-                # キーワードを含むドキュメントを優先
-                for doc in search_results:
-                    for keyword in keywords:
-                        if keyword in doc.page_content:
-                            keyword_matched_docs.append(doc)
-                            break
+                # ChromaDBから全ドキュメントを取得
+                collection = self.vector_store._collection
+                all_data = collection.get(include=["documents", "metadatas"])
                 
-                # キーワードマッチがあればそれを使用、なければ全結果
-                if keyword_matched_docs:
-                    all_docs = keyword_matched_docs
-                else:
-                    all_docs = search_results
+                if all_data and all_data.get('documents'):
+                    docs_list = all_data['documents']
+                    meta_list = all_data.get('metadatas', [{}] * len(docs_list))
+                    
+                    # 各ドキュメントをトークン化（文字単位）
+                    tokenized_docs = [list(doc) for doc in docs_list if doc]
+                    
+                    # BM25インデックスを構築
+                    bm25 = BM25Okapi(tokenized_docs)
+                    
+                    # 検索実行
+                    scores = bm25.get_scores(query_tokens)
+                    
+                    # スコアでソートして上位10件を取得
+                    top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:10]
+                    
+                    for idx in top_indices:
+                        if scores[idx] > 0:  # スコアが0より大きいもののみ
+                            content = docs_list[idx]
+                            metadata = meta_list[idx] if idx < len(meta_list) else {}
+                            all_docs.append(Document(page_content=content, metadata=metadata or {}))
             except Exception as e:
-                print(f"Search error: {e}")
+                print(f"BM25 search error: {e}")
+                # フォールバック: ベクトル検索
                 all_docs = self.retriever.invoke(question)
             
             # 重複排除
