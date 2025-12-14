@@ -535,31 +535,29 @@ def create_rag_chain(vector_store, llm_instance, sources):
                              '意味', 'なの', 'よね', 'だよ', 'あるの'}
                 keywords = [k for k in keywords if len(k) >= 2 and k not in stop_words]
             
-            # Step 2: テキスト検索 - ChromaDBのwhere_documentで$contains検索
+            # Step 2: 全ドキュメントを取得してPythonでテキスト検索
             all_docs = []
             
-            # ChromaDBのコレクションに直接アクセス
+            # ChromaDBのコレクションに直接アクセスして全ドキュメントを取得
             collection = self.vector_store._collection
             
-            for keyword in keywords[:3]:
-                try:
-                    # where_documentで$containsを使ってテキスト検索
-                    results = collection.get(
-                        where_document={"$contains": keyword},
-                        limit=10,
-                        include=["documents", "metadatas"]
-                    )
+            try:
+                # 全ドキュメントを取得
+                all_data = collection.get(include=["documents", "metadatas"])
+                
+                if all_data and all_data.get('documents'):
+                    from langchain_core.documents import Document
+                    docs_list = all_data['documents']
+                    meta_list = all_data.get('metadatas', [{}] * len(docs_list))
                     
-                    if results and results.get('documents'):
-                        from langchain_core.documents import Document
-                        docs_list = results['documents']
-                        meta_list = results.get('metadatas', [{}] * len(docs_list))
+                    # 各キーワードでフィルタリング
+                    for keyword in keywords[:3]:
                         for i, content in enumerate(docs_list):
-                            if content:  # contentが空でない場合
+                            if content and keyword in content:
                                 metadata = meta_list[i] if i < len(meta_list) else {}
                                 all_docs.append(Document(page_content=content, metadata=metadata or {}))
-                except Exception as e:
-                    print(f"Text search error for '{keyword}': {e}")
+            except Exception as e:
+                print(f"Text search error: {e}")
             
             # フォールバック: キーワードが見つからない場合は元の質問でベクトル検索
             if not all_docs:
