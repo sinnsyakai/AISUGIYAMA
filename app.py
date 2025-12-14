@@ -513,34 +513,39 @@ def create_rag_chain(vector_store, llm_instance, sources):
             DEBUG_MODE = True  # 後でFalseに戻す
             
             # Step 1: LLMで質問の意図を推測し、検索クエリを生成
-            query_prompt = f"""以下の質問の意図を理解し、資料から最適な情報を見つけるための検索クエリを生成してください。
+            query_prompt = f"""質問からキーワードを抽出してください。
 
-【ルール】
-- 質問の核心となるキーワードを3〜5個抽出
-- 関連する同義語や概念も含める
-- スペース区切りで出力
-
-【例】
-質問: 「すぎやまって何者なの？」
-検索クエリ: すぎやま 自己紹介 経歴 プロフィール 教師
-
-質問: 「リコーダーってやる意味あるの？」
-検索クエリ: リコーダー 音楽 授業 意義 楽器
-
-質問: 「読書感想文ってどう書けばいいの？」
-検索クエリ: 読書感想文 書き方 コツ おすすめ 本
-
----
 質問: {question}
-検索クエリ:"""
 
+キーワード（3〜5個、スペース区切り）:"""
+
+            search_query = question  # デフォルト
+            
             try:
                 query_response = self.llm.invoke(query_prompt)
-                search_query = query_response.content if hasattr(query_response, 'content') else str(query_response)
-                search_query = search_query.strip()
+                generated = query_response.content if hasattr(query_response, 'content') else str(query_response)
+                generated = generated.strip()
+                
+                # 生成されたクエリが有効かチェック
+                if generated and len(generated) > 2 and generated != question:
+                    search_query = generated
+                else:
+                    # フォールバック: 質問から主要単語を抽出
+                    import re
+                    words = re.findall(r'[ぁ-んァ-ンー一-龥a-zA-Z]+', question)
+                    stop_words = {'って', 'やる', 'ある', 'する', 'なの', 'ですか', 'の', 'は', 'が', 'を', 'に', '何者', '意味'}
+                    keywords = [w for w in words if len(w) >= 2 and w not in stop_words]
+                    if keywords:
+                        search_query = ' '.join(keywords[:5])
             except Exception as e:
                 print(f"Query generation error: {e}")
-                search_query = question  # フォールバック: 元の質問をそのまま使用
+                # フォールバック: 質問から主要単語を抽出
+                import re
+                words = re.findall(r'[ぁ-んァ-ンー一-龥a-zA-Z]+', question)
+                stop_words = {'って', 'やる', 'ある', 'する', 'なの', 'ですか', 'の', 'は', 'が', 'を', 'に', '何者', '意味'}
+                keywords = [w for w in words if len(w) >= 2 and w not in stop_words]
+                if keywords:
+                    search_query = ' '.join(keywords[:5])
             
             # 日本語文字を1文字ずつ分割（簡易トークナイザー）
             query_tokens = list(search_query)
