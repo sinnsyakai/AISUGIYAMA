@@ -512,41 +512,54 @@ def create_rag_chain(vector_store, llm_instance, sources):
             # デバッグモード: 検索結果をそのまま表示
             DEBUG_MODE = True  # 後でFalseに戻す
             
-            # Step 1: 質問の意図を理解し、最適な検索クエリを生成
-            query_input = self.query_prompt.format(question=question)
-            query_response = self.llm.invoke(query_input)
-            search_query = query_response.content if hasattr(query_response, 'content') else str(query_response)
+            # Step 1: 質問からキーワードを抽出（シンプルに主要な単語を使う）
+            # 日本語の質問から意味のある単語を抽出
+            import re
+            # 質問から「？」「って」「やる」「意味」「ある」などの一般的な単語を除去し、キーワードを抽出
+            keywords = re.findall(r'[ぁ-んァ-ン一-龥a-zA-Z]+', question)
+            # 短すぎる単語や一般的な単語を除外
+            stop_words = {'って', 'やる', 'ある', 'する', 'いる', 'なる', 'できる', 'ない', 
+                         'という', 'について', 'どう', 'なに', 'なん', 'どんな', 'ですか',
+                         'ください', 'ほしい', '教え', '教えて', 'の', 'は', 'が', 'を', 'に'}
+            keywords = [k for k in keywords if len(k) >= 2 and k not in stop_words]
             
-            # 「検索キーワード:」の後の部分を抽出
-            if "検索キーワード:" in search_query:
-                search_query = search_query.split("検索キーワード:")[-1].strip()
-            
-            # Step 2: ハイブリッド検索（変換クエリ + 元の質問）
-            # 変換されたクエリで検索
-            docs_transformed = self.retriever.invoke(search_query)
-            
-            # 元の質問でも検索（キーワードを直接マッチさせるため）
-            docs_original = self.retriever.invoke(question)
-            
-            # 結果を統合して重複を排除
-            seen_contents = set()
+            # Step 2: テキスト検索 - キーワードを含むドキュメントを直接検索
             all_docs = []
             
-            for doc in docs_transformed + docs_original:
-                content_hash = hash(doc.page_content[:200])  # 先頭200文字でハッシュ
+            # 各キーワードで$contains検索
+            for keyword in keywords[:3]:  # 最初の3つのキーワードで検索
+                try:
+                    # ChromaDBのwhere_documentフィルターでテキスト検索
+                    docs = self.vector_store.similarity_search(
+                        keyword,  # クエリ
+                        k=5,
+                        filter=None  # ソースフィルターは一旦外す
+                    )
+                    all_docs.extend(docs)
+                except Exception as e:
+                    print(f"Search error for '{keyword}': {e}")
+            
+            # フォールバック: キーワードが見つからない場合は元の質問で検索
+            if not all_docs:
+                all_docs = self.retriever.invoke(question)
+            
+            # 重複排除
+            seen_contents = set()
+            unique_docs = []
+            for doc in all_docs:
+                content_hash = hash(doc.page_content[:200])
                 if content_hash not in seen_contents:
                     seen_contents.add(content_hash)
-                    all_docs.append(doc)
+                    unique_docs.append(doc)
             
-            # 最大10件に制限
-            all_docs = all_docs[:10]
+            all_docs = unique_docs[:10]
             
             if DEBUG_MODE:
                 # デバッグ: 検索結果をそのまま表示
                 debug_output = f"### 🔍 デバッグモード\n\n"
-                debug_output += f"**検索クエリ（変換後）:** {search_query}\n\n"
+                debug_output += f"**抽出されたキーワード:** {keywords}\n\n"
                 debug_output += f"**元の質問:** {question}\n\n"
-                debug_output += f"**検索結果数:** 変換クエリ={len(docs_transformed)}, 元質問={len(docs_original)}, 統合後={len(all_docs)}\n\n"
+                debug_output += f"**検索結果数:** {len(all_docs)}\n\n"
                 debug_output += "---\n\n"
                 
                 for i, doc in enumerate(all_docs[:5]):  # 最初の5件を表示
