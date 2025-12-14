@@ -397,7 +397,7 @@ if not llm:
     st.stop()
 
 
-# RAG Chain Creation with Context Filtering
+# RAG Chain Creation with Query Understanding
 def create_rag_chain(vector_store, llm_instance, sources):
     if not sources:
         return None
@@ -409,44 +409,45 @@ def create_rag_chain(vector_store, llm_instance, sources):
     else:
         search_filter = {"source": {"$in": full_path_sources}}
     
-    # Retriever: k=10 で多めに取得し、後でフィルタリング
+    # Retriever
     retriever = vector_store.as_retriever(
         search_kwargs={
-            "k": 10,
+            "k": 8,
             "filter": search_filter
         }
     )
     
-    # Context フィルタリング用のプロンプト（厳格版）
-    filter_prompt = """あなたはフィルタリング担当です。検索結果から、質問に関係のある情報だけを抽出してください。
+    # クエリ変換プロンプト：質問の意図を理解し、最適な検索キーワードを生成
+    query_transform_prompt = """あなたは検索クエリ最適化の専門家です。
+ユーザーの質問を分析し、資料から最適な情報を引き出すための検索キーワードを生成してください。
 
-【ステップ1】まず、質問のタイプを判断してください：
-- 「すぎやまって何者？」「自己紹介して」→ タイプ: 自己紹介（経歴、プロフィール、どんな人か）
-- 「〇〇についてどう思う？」「〇〇って意味あるの？」→ タイプ: 特定のトピックへの意見
-- 「悩んでいる」「相談したい」→ タイプ: 相談・アドバイス
+【ルール】
+1. 質問の本質的な意図を理解する
+2. その意図に合った検索キーワードを3〜5個生成する
+3. 元の質問の単語だけでなく、関連する概念・同義語も含める
 
-【ステップ2】質問タイプに合った情報だけを抽出してください。それ以外は完全に無視してください。
+【例】
+質問: 「すぎやまって何者なの？」
+意図: すぎやまの自己紹介、経歴、プロフィールを知りたい
+検索キーワード: 自己紹介 経歴 プロフィール 教師 静岡
 
-【重要な除外ルール】
-- 「自己紹介」タイプの質問なら → プール、リコーダー、進路、不登校などの個別トピックの話は除外
-- 「特定トピック」タイプの質問なら → そのトピック以外の話は全て除外
-- 「相談」タイプの質問なら → 相談内容に関係ない話は全て除外
+質問: 「リコーダーってやる意味あるの？」
+意図: リコーダー教育の意義について知りたい
+検索キーワード: リコーダー 音楽 授業 意味 教育
+
+質問: 「進路について悩んでいる」
+意図: 進路選択のアドバイスが欲しい
+検索キーワード: 進路 将来 選択 夢 アドバイス
 
 ---
 
 【ユーザーの質問】
 {question}
 
-【検索結果】
-{raw_context}
-
----
-
 【出力形式】
-1. 質問タイプ: [自己紹介 / 特定トピック / 相談]
-2. 関係ある情報のみを箇条書きで出力（関係ない情報は絶対に含めない）
+検索キーワード: [スペース区切りでキーワードを出力]
 
-関係ある情報が見つからない場合: 「関係する情報が見つかりませんでした」と出力"""
+※キーワードのみを出力してください。説明は不要です。"""
 
     # 回答生成用のプロンプト
     answer_prompt = """
@@ -458,13 +459,11 @@ def create_rag_chain(vector_store, llm_instance, sources):
 
 ---
 
-## 【重要】回答の作り方
+## 【最重要】回答の作り方
 
-以下の「フィルタ済みコンテキスト」には、質問に関係のある情報だけが含まれています。
-この情報を使って回答を作成してください。
-
-1. **コンテキストの情報を優先**: 推測や一般論ではなく、コンテキストにある情報を使う
-2. **質問に直接答える**: 質問と関係ない話題は絶対に含めない
+1. **質問の意図を正確に理解する**: 何について答えを求められているか把握する
+2. **コンテキストの情報を使う**: 推測や一般論ではなく、コンテキストにある情報を優先
+3. **質問に直接答える**: 質問と関係ない話題は絶対に含めない
 
 ---
 
@@ -491,35 +490,39 @@ def create_rag_chain(vector_store, llm_instance, sources):
 
 ---
 
-【フィルタ済みコンテキスト】
-{filtered_context}
+【コンテキスト】
+{context}
 
 【ユーザーの質問】
 {question}"""
 
-    # カスタム RAG 関数を返す
+    # カスタム RAG 関数
     class CustomRAGChain:
-        def __init__(self, retriever, llm, filter_prompt, answer_prompt):
+        def __init__(self, retriever, llm, query_prompt, answer_prompt):
             self.retriever = retriever
             self.llm = llm
-            self.filter_prompt = filter_prompt
+            self.query_prompt = query_prompt
             self.answer_prompt = answer_prompt
         
         def stream(self, inputs):
             question = inputs.get("input", "")
             chat_history = inputs.get("chat_history", [])
             
-            # Step 1: 検索
-            docs = self.retriever.invoke(question)
-            raw_context = "\n\n---\n\n".join([doc.page_content for doc in docs])
+            # Step 1: 質問の意図を理解し、最適な検索クエリを生成
+            query_input = self.query_prompt.format(question=question)
+            query_response = self.llm.invoke(query_input)
+            search_query = query_response.content if hasattr(query_response, 'content') else str(query_response)
             
-            # Step 2: Context フィルタリング（LLMで関係ある情報だけ抽出）
-            filter_input = self.filter_prompt.format(question=question, raw_context=raw_context)
-            filter_response = self.llm.invoke(filter_input)
-            filtered_context = filter_response.content if hasattr(filter_response, 'content') else str(filter_response)
+            # 「検索キーワード:」の後の部分を抽出
+            if "検索キーワード:" in search_query:
+                search_query = search_query.split("検索キーワード:")[-1].strip()
+            
+            # Step 2: 最適化されたクエリで検索
+            docs = self.retriever.invoke(search_query)
+            context = "\n\n---\n\n".join([doc.page_content for doc in docs])
             
             # Step 3: 回答生成（ストリーミング）
-            answer_input = self.answer_prompt.format(filtered_context=filtered_context, question=question)
+            answer_input = self.answer_prompt.format(context=context, question=question)
             
             for chunk in self.llm.stream(answer_input):
                 if hasattr(chunk, 'content'):
@@ -527,7 +530,7 @@ def create_rag_chain(vector_store, llm_instance, sources):
                 else:
                     yield {"answer": str(chunk)}
     
-    return CustomRAGChain(retriever, llm_instance, filter_prompt, answer_prompt)
+    return CustomRAGChain(retriever, llm_instance, query_transform_prompt, answer_prompt)
 
 
 # Load Vector Store
