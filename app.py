@@ -343,39 +343,6 @@ def get_vector_store():
     vector_store = Chroma(persist_directory=DB_DIR, embedding_function=embeddings)
     return vector_store
 
-# BM25インデックスを起動時に事前構築（キャッシュ）
-@st.cache_resource(show_spinner="検索システムを準備中...")
-def build_bm25_index(_vector_store):
-    """アプリ起動時にBM25インデックスを構築してキャッシュ"""
-    if _vector_store is None:
-        return None
-    
-    from rank_bm25 import BM25Okapi
-    
-    try:
-        collection = _vector_store._collection
-        all_data = collection.get(include=["documents", "metadatas"])
-        
-        if all_data and all_data.get('documents'):
-            docs_list = all_data['documents']
-            meta_list = all_data.get('metadatas', [{}] * len(docs_list))
-            
-            # 各ドキュメントをトークン化（文字単位）
-            tokenized_docs = [list(doc) for doc in docs_list if doc]
-            
-            # BM25インデックスを構築
-            bm25 = BM25Okapi(tokenized_docs)
-            
-            return {
-                'bm25': bm25,
-                'docs': docs_list,
-                'meta': meta_list
-            }
-    except Exception as e:
-        print(f"BM25 index build error: {e}")
-    
-    return None
-
 # UI: Settings (Source Selection & Reset) - Hidden per user request
 # with st.expander("設定 (検索対象・リセット)", expanded=False):
 #     st.markdown("### 検索対象の選択")
@@ -429,14 +396,9 @@ if not llm:
     st.error("AIモデルの初期化に失敗しました。")
     st.stop()
 
-# 起動時のBM25事前構築は一時的に無効化（表示問題のデバッグ中）
-# vector_store = get_vector_store()
-# bm25_index_data = build_bm25_index(vector_store)
-bm25_index_data = None  # フォールバック検索を使用
-
 
 # RAG Chain Creation with Query Understanding
-def create_rag_chain(vector_store, llm_instance, sources, bm25_data):
+def create_rag_chain(vector_store, llm_instance, sources):
     if not sources:
         return None
         
@@ -536,13 +498,12 @@ def create_rag_chain(vector_store, llm_instance, sources, bm25_data):
 
     # カスタム RAG 関数（ハイブリッド検索対応）
     class CustomRAGChain:
-        def __init__(self, retriever, llm, query_prompt, answer_prompt, vector_store, bm25_data):
+        def __init__(self, retriever, llm, query_prompt, answer_prompt, vector_store):
             self.retriever = retriever
             self.llm = llm
             self.query_prompt = query_prompt
             self.answer_prompt = answer_prompt
             self.vector_store = vector_store
-            self.bm25_data = bm25_data  # 事前構築されたBM25インデックス
         
         def stream(self, inputs):
             question = inputs.get("input", "")
@@ -607,31 +568,38 @@ def create_rag_chain(vector_store, llm_instance, sources, bm25_data):
             # 日本語文字を1文字ずつ分割（簡易トークナイザー）
             query_tokens = list(search_query)
             
-            # Step 2: BM25検索 - 事前構築済みインデックスを使用
+            # Step 2: BM25検索 - 全ドキュメントからキーワードで検索
             all_docs = []
             
             try:
+                from rank_bm25 import BM25Okapi
                 from langchain_core.documents import Document
                 
-                # 事前構築されたBM25インデックスを使用（タイムアウト回避）
-                if self.bm25_data is not None:
-                    bm25 = self.bm25_data['bm25']
-                    docs_list = self.bm25_data['docs']
-                    meta_list = self.bm25_data['meta']
+                # ChromaDBから全ドキュメントを取得
+                collection = self.vector_store._collection
+                all_data = collection.get(include=["documents", "metadatas"])
+                
+                if all_data and all_data.get('documents'):
+                    docs_list = all_data['documents']
+                    meta_list = all_data.get('metadatas', [{}] * len(docs_list))
                     
+                    # 各ドキュメントをトークン化（文字単位）
+                    tokenized_docs = [list(doc) for doc in docs_list if doc]
+                    
+                    # BM25インデックスを構築
+                    bm25 = BM25Okapi(tokenized_docs)
+                    
+                    # 検索実行
                     scores = bm25.get_scores(query_tokens)
                     
                     # スコアでソートして上位10件を取得
                     top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:10]
                     
                     for idx in top_indices:
-                        if scores[idx] > 0:
+                        if scores[idx] > 0:  # スコアが0より大きいもののみ
                             content = docs_list[idx]
                             metadata = meta_list[idx] if idx < len(meta_list) else {}
                             all_docs.append(Document(page_content=content, metadata=metadata or {}))
-                else:
-                    # BM25が無効な場合はベクトル検索を使用
-                    all_docs = self.retriever.invoke(question)
             except Exception as e:
                 print(f"BM25 search error: {e}")
                 # フォールバック: ベクトル検索
@@ -677,7 +645,7 @@ def create_rag_chain(vector_store, llm_instance, sources, bm25_data):
                 else:
                     yield {"answer": str(chunk)}
     
-    return CustomRAGChain(retriever, llm_instance, query_transform_prompt, answer_prompt, vector_store, bm25_data)
+    return CustomRAGChain(retriever, llm_instance, query_transform_prompt, answer_prompt, vector_store)
 
 
 # Load Vector Store
@@ -692,7 +660,7 @@ if not selected_sources:
     st.warning("検索対象が選択されていません。設定から1つ以上の資料を選択してください。")
     rag_chain = None
 else:
-    rag_chain = create_rag_chain(vector_store, llm, selected_sources, bm25_index_data)
+    rag_chain = create_rag_chain(vector_store, llm, selected_sources)
 
 
 # Disclaimer for mobile (fixed position at bottom)
