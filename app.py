@@ -512,17 +512,42 @@ def create_rag_chain(vector_store, llm_instance, sources):
             # デバッグモード: 検索結果をそのまま表示
             DEBUG_MODE = True  # 後でFalseに戻す
             
-            # Step 1: シンプルなキーワード抽出（安定性優先）
-            # LLMクエリ生成は負荷が高いため一旦無効化
+            # Step 1: 日本語キーワード抽出 + 意図拡張
             import re
-            words = re.findall(r'[ぁ-んァ-ンー一-龥a-zA-Z]+', question)
-            stop_words = {'って', 'やる', 'ある', 'する', 'なの', 'ですか', 'の', 'は', 'が', 'を', 'に', 
-                         '意味', 'どう', 'なに', 'どんな', 'ください', '何者', 'てる', 'いる', 'なる'}
-            keywords = [w for w in words if len(w) >= 2 and w not in stop_words]
+            
+            # 意図パターン辞書：質問パターン → 追加キーワード
+            intent_expansions = {
+                '何者': ['経歴', 'プロフィール', '自己紹介', '教師'],
+                '誰': ['経歴', 'プロフィール', '自己紹介'],
+                '意味': ['意義', '目的', '理由', '必要性'],
+                '書く': ['書き方', 'コツ', '構成', 'おすすめ'],
+                '書き方': ['コツ', '構成', 'ポイント'],
+                'どうすれば': ['方法', 'コツ', 'アドバイス'],
+                '悩み': ['相談', 'アドバイス', '対処法'],
+                '悩んでいる': ['相談', 'アドバイス', '対処法'],
+            }
+            
+            # まず助詞・接続詞パターンで分割
+            split_patterns = r'って|っ て|なの|ですか|とは|について|どう|どんな|やる|ある|する|いる|なる'
+            segments = re.split(split_patterns, question)
+            
+            # 各セグメントからキーワードを抽出
+            keywords = []
+            for seg in segments:
+                words = re.findall(r'[ぁ-んァ-ンー一-龥a-zA-Z0-9]+', seg)
+                for w in words:
+                    if len(w) >= 2 and w not in {'意味', '何者', 'ください', 'てる', 'ほしい'}:
+                        keywords.append(w)
+            
+            # 意図拡張：質問に特定パターンがあれば関連キーワードを追加
+            for pattern, expansions in intent_expansions.items():
+                if pattern in question:
+                    keywords.extend(expansions)
+                    break  # 最初にマッチしたパターンのみ適用
             
             # 検索クエリを構築
             if keywords:
-                search_query = ' '.join(keywords[:5])
+                search_query = ' '.join(keywords[:8])  # 拡張されたキーワードも含めて最大8個
             else:
                 search_query = question
             
