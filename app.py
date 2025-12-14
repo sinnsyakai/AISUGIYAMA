@@ -368,7 +368,8 @@ selected_sources = get_available_sources()
 # show_spinner=False avoids the "Running get_llm..." message on UI
 @st.cache_resource(show_spinner=False)
 def get_llm():
-    target_models = ["gemini-1.5-pro-002", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-1.5-flash"]
+    # 2024/12時点の最新モデルリスト（高性能順）
+    target_models = ["gemini-2.5-flash-preview-05-20", "gemini-2.0-flash", "gemini-1.5-pro-002", "gemini-1.5-flash"]
     llm = None
     
     for model in target_models:
@@ -396,65 +397,49 @@ if not llm:
     st.stop()
 
 
-# RAG Chain Creation (Uncached or separated from heavy loading)
+# RAG Chain Creation with Context Filtering
 def create_rag_chain(vector_store, llm_instance, sources):
     if not sources:
         return None
         
-    # Create retriever with source filter
-    # Chroma filter syntax: where={"source": {"$in": sources}} OR if simple list, just where={"source": "filename"} but for list we need $in operator usually or iterate?
-    # Wait, Chroma `where` filter usually takes a dictionary. 
-    # Standard LangChain `as_retriever` search_kwargs accepts `filter`.
-    # Let's check if the ingest process saves 'source' metadata as just basename or full path.
-    # Standard loaders usually save full path.
-    # In `ingest.py`: loader = TextLoader(file_path)...
-    # So metadata['source'] is likely "data/filename.txt".
-    # Therefore we need to prepend DATA_DIR to the selected filenames for filtering.
-    
     full_path_sources = [os.path.join(DATA_DIR, s) for s in sources]
-    
-    # Construct filter
-    # If only 1 source, we can use simple dict. If multiple, we need "$or" or "$in" depending on backend.
-    # Chroma supports $in.
     
     if len(full_path_sources) == 1:
         search_filter = {"source": full_path_sources[0]}
     else:
         search_filter = {"source": {"$in": full_path_sources}}
-        
-    # Note: If passing all sources, maybe we don't need a filter? 
-    # But it's safer to be explicit if user allows deselecting.
     
-    # k=25: Balance between search quality and stability
+    # Retriever: k=10 で多めに取得し、後でフィルタリング
     retriever = vector_store.as_retriever(
         search_kwargs={
-            "k": 8,
+            "k": 10,
             "filter": search_filter
         }
     )
     
-    # Contextualize question prompt - 日本語クエリをそのまま検索に使う
-    contextualize_q_system_prompt = """ユーザーの質問をそのまま検索クエリとして使用してください。
-質問を言い換えたり要約したりしないでください。
-質問に含まれる固有名詞やキーワードは必ず保持してください。
-例：「おすすめの本教えて」→「おすすめの本教えて」
-例：「リコーダーってやる意味あるの」→「リコーダーってやる意味あるの」
-質問をそのまま返してください。"""
-    
-    contextualize_q_prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", contextualize_q_system_prompt),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
-        ]
-    )
-    
-    history_aware_retriever = create_history_aware_retriever(
-        llm, retriever, contextualize_q_prompt
-    )
-    
-    # Answer prompt
-    system_prompt = """
+    # Context フィルタリング用のプロンプト
+    filter_prompt = """以下は検索で見つかった情報です。
+
+【ユーザーの質問】
+{question}
+
+【検索結果】
+{raw_context}
+
+---
+
+上記の検索結果から、【ユーザーの質問に直接関係のある情報だけ】を抽出してください。
+質問と関係ない情報は完全に除外してください。
+
+例：
+- 質問が「すぎやまって何者？」なら → すぎやまの自己紹介、経歴、プロフィールに関する情報だけを抽出
+- 質問が「リコーダーの意味は？」なら → リコーダーに関する情報だけを抽出
+- 質問が「進路について」なら → 進路に関する情報だけを抽出
+
+関係ある情報だけを箇条書きで出力してください。関係ある情報がない場合は「関係する情報が見つかりませんでした」と出力してください。"""
+
+    # 回答生成用のプロンプト
+    answer_prompt = """
 ## キャラクター設定
 あなたは「静岡の元教師すぎやま」本人です。
 - 一人称: **ワタクシ**
@@ -463,67 +448,76 @@ def create_rag_chain(vector_store, llm_instance, sources):
 
 ---
 
-## 【最重要】回答の作り方
+## 【重要】回答の作り方
 
-**回答の質は、Context（検索結果）にある「すぎやま独自の思想・エピソード」をどれだけ引き出せるかで決まります。**
+以下の「フィルタ済みコンテキスト」には、質問に関係のある情報だけが含まれています。
+この情報を使って回答を作成してください。
 
-1. **Contextを必ず使う**: 推測や一般論での回答は禁止。必ずContextから答えを見つけ出すこと。
-2. **独自思想を優先**: 世間の常識ではなく、Contextにある「すぎやまの考え方」を使う。
-3. **質問に直接答える**: 質問と関係ない話題は含めない。
+1. **コンテキストの情報を優先**: 推測や一般論ではなく、コンテキストにある情報を使う
+2. **質問に直接答える**: 質問と関係ない話題は絶対に含めない
 
 ---
 
 ## 回答の形式
 
 - **文字数**: 500〜800文字
-- **見出し**: 必ず1つ以上の「###」見出しを入れる（##は禁止）
-- **改行**: 一文ごとに必ず改行を入れる（スマホで見やすくするため）
-- **内容**: Contextにある「ワタクシの具体的なエピソード」や「独自の哲学」を必ず盛り込む
+- **見出し**: 必ず1つ以上の「###」見出しを入れる
+- **改行**: 一文ごとに必ず改行を入れる
 
 ---
 
 ## 語尾ルール（厳守）
 
-### 使用する語尾（この中から選ぶ）
-- 「〜なの」「〜なのよ」「〜なのね」
-- 「〜だよね」「〜ね」「〜よね」
-- 「〜じゃない？」「〜だと思うよ」
-- 「〜です」「〜ますよ」「〜ですよ」「〜ですね」「〜なんですよ」「〜ますよね」
-- 「〜すぎ」「ヤバすぎ」「ツラすぎ」「すごすぎ」
-- 「結論。」「正直問題。」（体言止め）
-
-### 語尾のルール
-1. **同じ語尾を2回連続で使わない**（例: 「〜なの。〜なの。」は禁止）
-2. **1文飛ばしでも同じ語尾は禁止**（例: 「〜なの。〜だよね。〜なの。」は禁止）
-3. **同じ語尾は回答全体で最大2回まで**
-4. 語尾のバリエーションを豊かにして、単調にならないようにする
+使用する語尾: 「〜なの」「〜なのよ」「〜だよね」「〜ね」「〜じゃない？」「〜ですよ」「〜ますよね」「〜すぎ」など
+- 同じ語尾を2回連続で使わない
+- 1文飛ばしでも同じ語尾は禁止
+- 同じ語尾は回答全体で最大2回まで
 
 ---
 
 ## 禁止事項
-- 「動画で言ってたけど」「本によると」という前置き（自分の言葉として話す）
 - 質問と関係ない話題を含めること
-- 見出しを入れ忘れること
-- 改行を入れ忘れること
-- 同じ語尾の連続使用
+- 「動画で言ってた」「本によると」という前置き
 
 ---
 
-コンテキスト:
-{context}"""
+【フィルタ済みコンテキスト】
+{filtered_context}
+
+【ユーザーの質問】
+{question}"""
+
+    # カスタム RAG 関数を返す
+    class CustomRAGChain:
+        def __init__(self, retriever, llm, filter_prompt, answer_prompt):
+            self.retriever = retriever
+            self.llm = llm
+            self.filter_prompt = filter_prompt
+            self.answer_prompt = answer_prompt
+        
+        def stream(self, inputs):
+            question = inputs.get("input", "")
+            chat_history = inputs.get("chat_history", [])
+            
+            # Step 1: 検索
+            docs = self.retriever.invoke(question)
+            raw_context = "\n\n---\n\n".join([doc.page_content for doc in docs])
+            
+            # Step 2: Context フィルタリング（LLMで関係ある情報だけ抽出）
+            filter_input = self.filter_prompt.format(question=question, raw_context=raw_context)
+            filter_response = self.llm.invoke(filter_input)
+            filtered_context = filter_response.content if hasattr(filter_response, 'content') else str(filter_response)
+            
+            # Step 3: 回答生成（ストリーミング）
+            answer_input = self.answer_prompt.format(filtered_context=filtered_context, question=question)
+            
+            for chunk in self.llm.stream(answer_input):
+                if hasattr(chunk, 'content'):
+                    yield {"answer": chunk.content}
+                else:
+                    yield {"answer": str(chunk)}
     
-    qa_prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", system_prompt),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
-        ]
-    )
-    
-    question_answer_chain = create_stuff_documents_chain(llm_instance, qa_prompt)
-    rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
-    
-    return rag_chain
+    return CustomRAGChain(retriever, llm_instance, filter_prompt, answer_prompt)
 
 
 # Load Vector Store
