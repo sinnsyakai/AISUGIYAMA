@@ -629,6 +629,9 @@ def create_rag_chain(vector_store, llm_instance, sources, bm25_data):
                             content = docs_list[idx]
                             metadata = meta_list[idx] if idx < len(meta_list) else {}
                             all_docs.append(Document(page_content=content, metadata=metadata or {}))
+                else:
+                    # BM25が無効な場合はベクトル検索を使用
+                    all_docs = self.retriever.invoke(question)
             except Exception as e:
                 print(f"BM25 search error: {e}")
                 # フォールバック: ベクトル検索
@@ -781,23 +784,24 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
     else:
         with st.chat_message("assistant", avatar="assets/new_icon.jpg"):
             
-            # 質問送信直後、自分の質問と「ちょっと待ってね」が見えるようにスクロール
+            # 質問送信直後、自分の質問が見えるようにスクロール（最初から質問の位置へ）
             components.html(
                 """
                 <script>
-                    const scrollToLatest = () => {
+                    const scrollToQuestion = () => {
                         // モバイルキーボードを閉じる
                         if (window.parent.document.activeElement) {
                             window.parent.document.activeElement.blur();
                         }
                         
                         const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
-                        if (messages.length > 0) {
-                            const lastMsg = messages[messages.length - 1];
-                            if (lastMsg) lastMsg.scrollIntoView({behavior: 'smooth', block: 'center'});
+                        if (messages.length >= 2) {
+                            // 最後から2番目（質問のメッセージ）にスクロール
+                            const questionMsg = messages[messages.length - 2];
+                            if (questionMsg) questionMsg.scrollIntoView({behavior: 'smooth', block: 'start'});
                         }
                     };
-                    setTimeout(scrollToLatest, 100);
+                    setTimeout(scrollToQuestion, 100);
                 </script>
                 """,
                 height=0,
