@@ -347,6 +347,9 @@ def get_vector_store():
 @st.cache_resource(show_spinner="検索システムを準備中...")
 def build_bm25_index(_vector_store):
     """アプリ起動時にBM25インデックスを構築してキャッシュ"""
+    if _vector_store is None:
+        return None
+    
     from rank_bm25 import BM25Okapi
     
     try:
