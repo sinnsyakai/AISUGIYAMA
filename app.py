@@ -129,6 +129,18 @@ st.markdown("""
         /* create scroll margin so it doesn't hide behind header when scrolled to */
         scroll-margin-top: 120px !important; 
     }
+    
+    /* Streamlitの自動スクロールを無効化 */
+    [data-testid="stAppViewBlockContainer"],
+    [data-testid="stVerticalBlock"],
+    .main .block-container {
+        overflow-anchor: none !important;
+    }
+    
+    /* スクロール動作を即座に（アニメーションなしで） */
+    * {
+        scroll-behavior: auto !important;
+    }
     [data-testid="stChatMessage"]:nth-child(odd) {
         background-color: #d1fae5;
         border-radius: 20px;
@@ -827,20 +839,13 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                             window.parent.document.activeElement.blur();
                         }
                         
-                        const scrollToQuestion = () => {
-                            const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
-                            if (messages.length >= 2) {
-                                const questionMsg = messages[messages.length - 2];
-                                if (questionMsg) {
-                                    questionMsg.scrollIntoView({behavior: 'auto', block: 'start'});
-                                }
+                        // 質問メッセージにスクロール
+                        const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
+                        if (messages.length >= 2) {
+                            const questionMsg = messages[messages.length - 2];
+                            if (questionMsg) {
+                                questionMsg.scrollIntoView({behavior: 'auto', block: 'start'});
                             }
-                        };
-                        
-                        // Streamlitの自動スクロールを上書きするため何度も実行
-                        scrollToQuestion();
-                        for (let i = 1; i <= 20; i++) {
-                            setTimeout(scrollToQuestion, i * 100);
                         }
                     })();
                 </script>
@@ -949,11 +954,8 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                                     }
                                 };
 
-                                // Streamlitの自動スクロールを上書きするため何度も実行
+                                // 1回だけ実行（CSSで自動スクロールを無効化済み）
                                 scrollToQuestion();
-                                for (let i = 1; i <= 30; i++) {
-                                    setTimeout(scrollToQuestion, i * 100);
-                                }
                             })();
                         </script>
                         """,
