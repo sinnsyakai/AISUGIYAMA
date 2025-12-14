@@ -512,36 +512,22 @@ def create_rag_chain(vector_store, llm_instance, sources):
             # デバッグモード: 検索結果をそのまま表示
             DEBUG_MODE = True  # 後でFalseに戻す
             
-            # Step 1: LLMを使って質問からキーワードを抽出
-            keyword_prompt = f"""以下の質問から、検索に使うべきキーワードを1〜3個抽出してください。
-一般的な単語（って、やる、ある、意味、する、など）は除外してください。
-具体的な名詞や固有名詞を優先してください。
-
-質問: {question}
-
-キーワード（カンマ区切り）:"""
+            # Step 1: 正規表現でキーワードを抽出（ーを含む）
+            import re
+            keywords = re.findall(r'[ぁ-んァ-ンー一-龥a-zA-Z]+', question)
+            stop_words = {'って', 'やる', 'ある', 'する', 'いる', 'なる', 'できる', 'ない', 
+                         'という', 'について', 'どう', 'なに', 'なん', 'どんな', 'ですか',
+                         'ください', 'ほしい', '教え', '教えて', 'の', 'は', 'が', 'を', 'に',
+                         '意味', 'なの', 'よね', 'だよ', 'あるの', 'ってやる', 'やる意味'}
+            keywords = [k for k in keywords if len(k) >= 2 and k not in stop_words]
             
-            try:
-                kw_response = self.llm.invoke(keyword_prompt)
-                kw_text = kw_response.content if hasattr(kw_response, 'content') else str(kw_response)
-                keywords = [k.strip() for k in kw_text.split(',') if k.strip() and len(k.strip()) >= 2]
-            except Exception as e:
-                # フォールバック: 正規表現で抽出（ーを含む）
-                import re
-                keywords = re.findall(r'[ぁ-んァ-ンー一-龥a-zA-Z]+', question)
-                stop_words = {'って', 'やる', 'ある', 'する', 'いる', 'なる', 'できる', 'ない', 
-                             'という', 'について', 'どう', 'なに', 'なん', 'どんな', 'ですか',
-                             'ください', 'ほしい', '教え', '教えて', 'の', 'は', 'が', 'を', 'に',
-                             '意味', 'なの', 'よね', 'だよ', 'あるの'}
-                keywords = [k for k in keywords if len(k) >= 2 and k not in stop_words]
-            
-            # Step 2: ベクトル検索で多めに取得し、キーワードを含むものを優先
+            # Step 2: ベクトル検索でシンプルに取得
             all_docs = []
             keyword_matched_docs = []
             
             try:
-                # ベクトル検索で多めに取得（k=50）
-                search_results = self.vector_store.similarity_search(question, k=50)
+                # ベクトル検索（k=20に削減）
+                search_results = self.vector_store.similarity_search(question, k=20)
                 
                 # キーワードを含むドキュメントを優先
                 for doc in search_results:
