@@ -343,6 +343,39 @@ def get_vector_store():
     vector_store = Chroma(persist_directory=DB_DIR, embedding_function=embeddings)
     return vector_store
 
+# 【根本対策】BM25インデックスをアプリ起動時に1回だけ構築してキャッシュ
+@st.cache_resource(show_spinner=False)
+def get_bm25_index(_vector_store):
+    """BM25インデックスを構築してキャッシュ（起動時に1回のみ実行）"""
+    if _vector_store is None:
+        return None
+    
+    try:
+        from rank_bm25 import BM25Okapi
+        
+        collection = _vector_store._collection
+        all_data = collection.get(include=["documents", "metadatas"])
+        
+        if all_data and all_data.get('documents'):
+            docs_list = all_data['documents']
+            meta_list = all_data.get('metadatas', [{}] * len(docs_list))
+            
+            # 各ドキュメントをトークン化（文字単位）
+            tokenized_docs = [list(doc) for doc in docs_list if doc]
+            
+            # BM25インデックスを構築
+            bm25 = BM25Okapi(tokenized_docs)
+            
+            return {
+                'bm25': bm25,
+                'docs': docs_list,
+                'meta': meta_list
+            }
+    except Exception as e:
+        print(f"BM25 index build error: {e}")
+    
+    return None
+
 # UI: Settings (Source Selection & Reset) - Hidden per user request
 # with st.expander("設定 (検索対象・リセット)", expanded=False):
 #     st.markdown("### 検索対象の選択")
@@ -568,38 +601,34 @@ def create_rag_chain(vector_store, llm_instance, sources):
             # 日本語文字を1文字ずつ分割（簡易トークナイザー）
             query_tokens = list(search_query)
             
-            # Step 2: BM25検索 - 全ドキュメントからキーワードで検索
+            # Step 2: BM25検索 - 【根本対策】キャッシュ済みインデックスを使用
             all_docs = []
             
             try:
-                from rank_bm25 import BM25Okapi
                 from langchain_core.documents import Document
                 
-                # ChromaDBから全ドキュメントを取得
-                collection = self.vector_store._collection
-                all_data = collection.get(include=["documents", "metadatas"])
+                # キャッシュされたBM25インデックスを取得（毎回再構築しない）
+                bm25_cache = get_bm25_index(self.vector_store)
                 
-                if all_data and all_data.get('documents'):
-                    docs_list = all_data['documents']
-                    meta_list = all_data.get('metadatas', [{}] * len(docs_list))
+                if bm25_cache is not None:
+                    bm25 = bm25_cache['bm25']
+                    docs_list = bm25_cache['docs']
+                    meta_list = bm25_cache['meta']
                     
-                    # 各ドキュメントをトークン化（文字単位）
-                    tokenized_docs = [list(doc) for doc in docs_list if doc]
-                    
-                    # BM25インデックスを構築
-                    bm25 = BM25Okapi(tokenized_docs)
-                    
-                    # 検索実行
+                    # 検索実行（キャッシュ済みインデックスを使用するので高速）
                     scores = bm25.get_scores(query_tokens)
                     
                     # スコアでソートして上位10件を取得
                     top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:10]
                     
                     for idx in top_indices:
-                        if scores[idx] > 0:  # スコアが0より大きいもののみ
+                        if scores[idx] > 0:
                             content = docs_list[idx]
                             metadata = meta_list[idx] if idx < len(meta_list) else {}
                             all_docs.append(Document(page_content=content, metadata=metadata or {}))
+                else:
+                    # キャッシュがない場合はベクトル検索にフォールバック
+                    all_docs = self.retriever.invoke(question)
             except Exception as e:
                 print(f"BM25 search error: {e}")
                 # フォールバック: ベクトル検索
