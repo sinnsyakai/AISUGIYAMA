@@ -512,34 +512,38 @@ def create_rag_chain(vector_store, llm_instance, sources):
             # デバッグモード: 検索結果をそのまま表示
             DEBUG_MODE = True  # 後でFalseに戻す
             
-            # Step 1: 質問からキーワードを抽出（シンプルに主要な単語を使う）
-            # 日本語の質問から意味のある単語を抽出
+            # Step 1: 質問からキーワードを抽出
             import re
-            # 質問から「？」「って」「やる」「意味」「ある」などの一般的な単語を除去し、キーワードを抽出
             keywords = re.findall(r'[ぁ-んァ-ン一-龥a-zA-Z]+', question)
-            # 短すぎる単語や一般的な単語を除外
             stop_words = {'って', 'やる', 'ある', 'する', 'いる', 'なる', 'できる', 'ない', 
                          'という', 'について', 'どう', 'なに', 'なん', 'どんな', 'ですか',
-                         'ください', 'ほしい', '教え', '教えて', 'の', 'は', 'が', 'を', 'に'}
+                         'ください', 'ほしい', '教え', '教えて', 'の', 'は', 'が', 'を', 'に',
+                         '意味', 'なの', 'よね', 'だよ'}
             keywords = [k for k in keywords if len(k) >= 2 and k not in stop_words]
             
-            # Step 2: テキスト検索 - キーワードを含むドキュメントを直接検索
+            # Step 2: テキスト検索 - ChromaDBのwhere_documentで$contains検索
             all_docs = []
             
-            # 各キーワードで$contains検索
-            for keyword in keywords[:3]:  # 最初の3つのキーワードで検索
-                try:
-                    # ChromaDBのwhere_documentフィルターでテキスト検索
-                    docs = self.vector_store.similarity_search(
-                        keyword,  # クエリ
-                        k=5,
-                        filter=None  # ソースフィルターは一旦外す
-                    )
-                    all_docs.extend(docs)
-                except Exception as e:
-                    print(f"Search error for '{keyword}': {e}")
+            # ChromaDBのコレクションに直接アクセス
+            collection = self.vector_store._collection
             
-            # フォールバック: キーワードが見つからない場合は元の質問で検索
+            for keyword in keywords[:3]:
+                try:
+                    # where_documentで$containsを使ってテキスト検索
+                    results = collection.get(
+                        where_document={"$contains": keyword},
+                        limit=10
+                    )
+                    
+                    if results and results['documents']:
+                        from langchain_core.documents import Document
+                        for i, content in enumerate(results['documents']):
+                            metadata = results['metadatas'][i] if results['metadatas'] else {}
+                            all_docs.append(Document(page_content=content, metadata=metadata))
+                except Exception as e:
+                    print(f"Text search error for '{keyword}': {e}")
+            
+            # フォールバック: キーワードが見つからない場合は元の質問でベクトル検索
             if not all_docs:
                 all_docs = self.retriever.invoke(question)
             
