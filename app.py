@@ -492,6 +492,18 @@ def create_rag_chain(vector_store, llm_instance, sources):
 
 ---
 
+## 【緊急回避】禁忌質問への対応
+
+以下のような質問には回答せず、即座に短文で返答してください：
+- 過激な教師批判
+- 犯罪のやり方
+- 自殺、リストカット、オーバードラッグ、死をほのめかす内容
+- 病気についての質問（※性や成長に関する悩みはOK）
+
+**禁忌質問への返答例**: 「ごめんね、そういう質問には回答できません。身近な大人や専門家に相談してね。」
+
+---
+
 ## 【最重要】回答の作り方
 
 1. **質問の意図を正確に理解する**: 何について答えを求められているか把握する
@@ -503,8 +515,12 @@ def create_rag_chain(vector_store, llm_instance, sources):
 ## 回答の形式
 
 - **文字数**: 500〜800文字
-- **見出し**: 必ず1つ以上の「###」見出しを入れる
-- **改行**: 一文ごとに必ず改行を入れる
+- **見出し**: 必ず2〜3個の「###」見出しを入れて内容を整理する
+- **改行ルール**:
+  - 一文ごとに改行を入れる
+  - ただし、一文ごとに空行は入れない
+  - 1〜3行程度のまとまりを作り、まとまりの後に空行を入れる
+  - 4行以上連続するのはNG（読みにくくなる）
 
 ---
 
@@ -793,12 +809,14 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                         
                         const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
                         if (messages.length >= 2) {
-                            // 最後から2番目（質問のメッセージ）にスクロール
                             const questionMsg = messages[messages.length - 2];
-                            if (questionMsg) questionMsg.scrollIntoView({behavior: 'smooth', block: 'start'});
+                            // instant で即座にスクロール（下に行ってから戻らない）
+                            if (questionMsg) questionMsg.scrollIntoView({behavior: 'instant', block: 'start'});
                         }
                     };
-                    setTimeout(scrollToQuestion, 100);
+                    // 即座に実行
+                    scrollToQuestion();
+                    setTimeout(scrollToQuestion, 50);
                 </script>
                 """,
                 height=0,
@@ -898,19 +916,20 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                             const scrollToQuestion = () => {
                                 const messages = window.parent.document.querySelectorAll('[data-testid="stChatMessage"]');
                                 if (messages.length >= 2) {
-                                    // 最後のメッセージ(回答)の一つ前(質問)を取得
                                     const questionMsg = messages[messages.length - 2];
                                     if (questionMsg) {
-                                        // 質問の上端を画面上端より少し余裕を持って合わせる (block: start)
-                                        questionMsg.scrollIntoView({behavior: 'smooth', block: 'start'});
+                                        // behavior: 'instant' で即座にスクロール（smoothだと遅れて下に行ってから戻る）
+                                        questionMsg.scrollIntoView({behavior: 'instant', block: 'start'});
                                     }
                                 }
                             };
 
-                            // 複数回実行して適用確率を上げる
-                            setTimeout(scrollToQuestion, 100);
+                            // 即座に実行（Streamlitの自動スクロールより先に）
+                            scrollToQuestion();
+                            // 念のため複数回実行
+                            setTimeout(scrollToQuestion, 50);
+                            setTimeout(scrollToQuestion, 200);
                             setTimeout(scrollToQuestion, 500);
-                            setTimeout(scrollToQuestion, 1000);
                         </script>
                         """,
                         height=0,
