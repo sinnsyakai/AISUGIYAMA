@@ -427,7 +427,7 @@ if not llm:
     st.stop()
 
 # 起動時にBM25インデックスを事前構築（キャッシュ）
-vector_store = get_or_create_vector_store()
+vector_store = get_vector_store()
 bm25_index_data = build_bm25_index(vector_store)
 
 
