@@ -568,8 +568,7 @@ def create_rag_chain(vector_store, llm_instance, sources):
             if DEBUG_MODE:
                 # デバッグ: 検索結果をそのまま表示
                 debug_output = f"### 🔍 デバッグモード\n\n"
-                debug_output += f"**抽出されたキーワード:** {keywords}\n\n"
-                debug_output += f"**元の質問:** {question}\n\n"
+                debug_output += f"**クエリ:** {question}\n\n"
                 debug_output += f"**検索結果数:** {len(all_docs)}\n\n"
                 debug_output += "---\n\n"
                 
