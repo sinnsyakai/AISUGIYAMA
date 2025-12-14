@@ -429,9 +429,10 @@ if not llm:
     st.error("AIモデルの初期化に失敗しました。")
     st.stop()
 
-# 起動時にBM25インデックスを事前構築（キャッシュ）
-vector_store = get_vector_store()
-bm25_index_data = build_bm25_index(vector_store)
+# 起動時のBM25事前構築は一時的に無効化（表示問題のデバッグ中）
+# vector_store = get_vector_store()
+# bm25_index_data = build_bm25_index(vector_store)
+bm25_index_data = None  # フォールバック検索を使用
 
 
 # RAG Chain Creation with Query Understanding
