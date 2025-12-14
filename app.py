@@ -512,10 +512,38 @@ def create_rag_chain(vector_store, llm_instance, sources):
             # デバッグモード: 検索結果をそのまま表示
             DEBUG_MODE = True  # 後でFalseに戻す
             
-            # Step 1: 質問をトークン化
-            import re
+            # Step 1: LLMで質問の意図を推測し、検索クエリを生成
+            query_prompt = f"""以下の質問の意図を理解し、資料から最適な情報を見つけるための検索クエリを生成してください。
+
+【ルール】
+- 質問の核心となるキーワードを3〜5個抽出
+- 関連する同義語や概念も含める
+- スペース区切りで出力
+
+【例】
+質問: 「すぎやまって何者なの？」
+検索クエリ: すぎやま 自己紹介 経歴 プロフィール 教師
+
+質問: 「リコーダーってやる意味あるの？」
+検索クエリ: リコーダー 音楽 授業 意義 楽器
+
+質問: 「読書感想文ってどう書けばいいの？」
+検索クエリ: 読書感想文 書き方 コツ おすすめ 本
+
+---
+質問: {question}
+検索クエリ:"""
+
+            try:
+                query_response = self.llm.invoke(query_prompt)
+                search_query = query_response.content if hasattr(query_response, 'content') else str(query_response)
+                search_query = search_query.strip()
+            except Exception as e:
+                print(f"Query generation error: {e}")
+                search_query = question  # フォールバック: 元の質問をそのまま使用
+            
             # 日本語文字を1文字ずつ分割（簡易トークナイザー）
-            query_tokens = list(question)
+            query_tokens = list(search_query)
             
             # Step 2: BM25検索 - 全ドキュメントからキーワードで検索
             all_docs = []
@@ -568,7 +596,8 @@ def create_rag_chain(vector_store, llm_instance, sources):
             if DEBUG_MODE:
                 # デバッグ: 検索結果をそのまま表示
                 debug_output = f"### 🔍 デバッグモード\n\n"
-                debug_output += f"**クエリ:** {question}\n\n"
+                debug_output += f"**元の質問:** {question}\n\n"
+                debug_output += f"**生成された検索クエリ:** {search_query}\n\n"
                 debug_output += f"**検索結果数:** {len(all_docs)}\n\n"
                 debug_output += "---\n\n"
                 
