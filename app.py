@@ -532,14 +532,18 @@ def create_rag_chain(vector_store, llm_instance, sources):
                     # where_documentで$containsを使ってテキスト検索
                     results = collection.get(
                         where_document={"$contains": keyword},
-                        limit=10
+                        limit=10,
+                        include=["documents", "metadatas"]
                     )
                     
-                    if results and results['documents']:
+                    if results and results.get('documents'):
                         from langchain_core.documents import Document
-                        for i, content in enumerate(results['documents']):
-                            metadata = results['metadatas'][i] if results['metadatas'] else {}
-                            all_docs.append(Document(page_content=content, metadata=metadata))
+                        docs_list = results['documents']
+                        meta_list = results.get('metadatas', [{}] * len(docs_list))
+                        for i, content in enumerate(docs_list):
+                            if content:  # contentが空でない場合
+                                metadata = meta_list[i] if i < len(meta_list) else {}
+                                all_docs.append(Document(page_content=content, metadata=metadata or {}))
                 except Exception as e:
                     print(f"Text search error for '{keyword}': {e}")
             
