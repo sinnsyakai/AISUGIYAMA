@@ -496,13 +496,14 @@ def create_rag_chain(vector_store, llm_instance, sources):
 【ユーザーの質問】
 {question}"""
 
-    # カスタム RAG 関数
+    # カスタム RAG 関数（ハイブリッド検索対応）
     class CustomRAGChain:
-        def __init__(self, retriever, llm, query_prompt, answer_prompt):
+        def __init__(self, retriever, llm, query_prompt, answer_prompt, vector_store):
             self.retriever = retriever
             self.llm = llm
             self.query_prompt = query_prompt
             self.answer_prompt = answer_prompt
+            self.vector_store = vector_store
         
         def stream(self, inputs):
             question = inputs.get("input", "")
@@ -517,9 +518,27 @@ def create_rag_chain(vector_store, llm_instance, sources):
             if "検索キーワード:" in search_query:
                 search_query = search_query.split("検索キーワード:")[-1].strip()
             
-            # Step 2: 最適化されたクエリで検索
-            docs = self.retriever.invoke(search_query)
-            context = "\n\n---\n\n".join([doc.page_content for doc in docs])
+            # Step 2: ハイブリッド検索（変換クエリ + 元の質問）
+            # 変換されたクエリで検索
+            docs_transformed = self.retriever.invoke(search_query)
+            
+            # 元の質問でも検索（キーワードを直接マッチさせるため）
+            docs_original = self.retriever.invoke(question)
+            
+            # 結果を統合して重複を排除
+            seen_contents = set()
+            all_docs = []
+            
+            for doc in docs_transformed + docs_original:
+                content_hash = hash(doc.page_content[:200])  # 先頭200文字でハッシュ
+                if content_hash not in seen_contents:
+                    seen_contents.add(content_hash)
+                    all_docs.append(doc)
+            
+            # 最大10件に制限
+            all_docs = all_docs[:10]
+            
+            context = "\n\n---\n\n".join([doc.page_content for doc in all_docs])
             
             # Step 3: 回答生成（ストリーミング）
             answer_input = self.answer_prompt.format(context=context, question=question)
@@ -530,7 +549,7 @@ def create_rag_chain(vector_store, llm_instance, sources):
                 else:
                     yield {"answer": str(chunk)}
     
-    return CustomRAGChain(retriever, llm_instance, query_transform_prompt, answer_prompt)
+    return CustomRAGChain(retriever, llm_instance, query_transform_prompt, answer_prompt, vector_store)
 
 
 # Load Vector Store
