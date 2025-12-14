@@ -535,32 +535,28 @@ def create_rag_chain(vector_store, llm_instance, sources):
                              '意味', 'なの', 'よね', 'だよ', 'あるの'}
                 keywords = [k for k in keywords if len(k) >= 2 and k not in stop_words]
             
-            # Step 2: 全ドキュメントを取得してPythonでテキスト検索
+            # Step 2: ベクトル検索で多めに取得し、キーワードを含むものを優先
             all_docs = []
-            
-            # ChromaDBのコレクションに直接アクセスして全ドキュメントを取得
-            collection = self.vector_store._collection
+            keyword_matched_docs = []
             
             try:
-                # 全ドキュメントを取得
-                all_data = collection.get(include=["documents", "metadatas"])
+                # ベクトル検索で多めに取得（k=50）
+                search_results = self.vector_store.similarity_search(question, k=50)
                 
-                if all_data and all_data.get('documents'):
-                    from langchain_core.documents import Document
-                    docs_list = all_data['documents']
-                    meta_list = all_data.get('metadatas', [{}] * len(docs_list))
-                    
-                    # 各キーワードでフィルタリング
-                    for keyword in keywords[:3]:
-                        for i, content in enumerate(docs_list):
-                            if content and keyword in content:
-                                metadata = meta_list[i] if i < len(meta_list) else {}
-                                all_docs.append(Document(page_content=content, metadata=metadata or {}))
+                # キーワードを含むドキュメントを優先
+                for doc in search_results:
+                    for keyword in keywords:
+                        if keyword in doc.page_content:
+                            keyword_matched_docs.append(doc)
+                            break
+                
+                # キーワードマッチがあればそれを使用、なければ全結果
+                if keyword_matched_docs:
+                    all_docs = keyword_matched_docs
+                else:
+                    all_docs = search_results
             except Exception as e:
-                print(f"Text search error: {e}")
-            
-            # フォールバック: キーワードが見つからない場合は元の質問でベクトル検索
-            if not all_docs:
+                print(f"Search error: {e}")
                 all_docs = self.retriever.invoke(question)
             
             # 重複排除
